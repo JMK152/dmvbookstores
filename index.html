@@ -55,6 +55,98 @@
       margin-bottom: 0.6rem;
     }
 
+    .map-toolbar-controls {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+
+    .fullscreen-btn {
+      appearance: none;
+      border: 1px solid #d4d4d8;
+      border-radius: 6px;
+      background: #fafafa;
+      color: #27272a;
+      font-family: inherit;
+      font-size: 0.82rem;
+      font-weight: 500;
+      padding: 0.35rem 0.7rem;
+      cursor: pointer;
+      transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+    }
+
+    .fullscreen-btn:hover {
+      background: #f4f4f5;
+    }
+
+    .fullscreen-btn[aria-pressed="true"] {
+      background: #18181b;
+      border-color: #18181b;
+      color: #ffffff;
+    }
+
+    #map:fullscreen {
+      width: 100vw;
+      height: 100vh;
+      max-width: none;
+      margin: 0;
+      border: none;
+      border-radius: 0;
+    }
+
+    #map:-webkit-full-screen {
+      width: 100vw;
+      height: 100vh;
+      max-width: none;
+      margin: 0;
+      border: none;
+      border-radius: 0;
+    }
+
+    body.map-pseudo-fullscreen {
+      overflow: hidden;
+    }
+
+    #map.map-pseudo-fullscreen {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      width: 100vw;
+      height: 100vh;
+      max-width: none;
+      margin: 0;
+      border: none;
+      border-radius: 0;
+    }
+
+    .exit-fullscreen-floating-btn {
+      display: none;
+      position: fixed;
+      top: 14px;
+      right: 14px;
+      z-index: 10000;
+      appearance: none;
+      border: 1px solid #d4d4d8;
+      border-radius: 6px;
+      background: #18181b;
+      color: #ffffff;
+      font-family: inherit;
+      font-size: 0.85rem;
+      font-weight: 500;
+      padding: 0.45rem 0.8rem;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+    }
+
+    .exit-fullscreen-floating-btn:hover {
+      background: #27272a;
+    }
+
+    body.map-any-fullscreen .exit-fullscreen-floating-btn {
+      display: inline-block;
+    }
+
     .map-toolbar-label {
       font-size: 0.85rem;
       font-weight: 500;
@@ -283,13 +375,17 @@
 
   <div class="map-toolbar">
     <span class="map-toolbar-label">Map style</span>
-    <div class="style-buttons" role="group" aria-label="Map style switcher">
-      <button type="button" class="style-btn" data-style="rastertiles/voyager" aria-pressed="true">Voyager</button>
-      <button type="button" class="style-btn" data-style="light_all" aria-pressed="false">Positron</button>
-      <button type="button" class="style-btn" data-style="dark_all" aria-pressed="false">Dark Matter</button>
+    <div class="map-toolbar-controls">
+      <div class="style-buttons" role="group" aria-label="Map style switcher">
+        <button type="button" class="style-btn" data-style="rastertiles/voyager" aria-pressed="true">Voyager</button>
+        <button type="button" class="style-btn" data-style="light_all" aria-pressed="false">Positron</button>
+        <button type="button" class="style-btn" data-style="dark_all" aria-pressed="false">Dark Matter</button>
+      </div>
+      <button type="button" id="fullscreenBtn" class="fullscreen-btn" aria-pressed="false">Full screen</button>
     </div>
   </div>
   <div id="map"></div>
+  <button type="button" id="exitFullscreenBtn" class="exit-fullscreen-floating-btn">Exit full screen</button>
   <div id="mapNotice" class="map-notice"></div>
   <div id="list" class="status">Loading bookstores...</div>
 
@@ -751,6 +847,76 @@
       btn.addEventListener("click", () => {
         setMapStyle(btn.dataset.style);
       });
+    });
+
+    const mapEl = document.getElementById("map");
+    const fullscreenBtn = document.getElementById("fullscreenBtn");
+    const exitFullscreenBtn = document.getElementById("exitFullscreenBtn");
+    let pseudoFullscreen = false;
+
+    function getFullscreenElement() {
+      return document.fullscreenElement || document.webkitFullscreenElement || null;
+    }
+
+    function isMapFullscreen() {
+      return getFullscreenElement() === mapEl || pseudoFullscreen;
+    }
+
+    function syncFullscreenUi() {
+      const active = isMapFullscreen();
+      fullscreenBtn.setAttribute("aria-pressed", active ? "true" : "false");
+      fullscreenBtn.textContent = active ? "Exit full screen" : "Full screen";
+      document.body.classList.toggle("map-any-fullscreen", active);
+      document.body.classList.toggle("map-pseudo-fullscreen", pseudoFullscreen);
+      mapEl.classList.toggle("map-pseudo-fullscreen", pseudoFullscreen);
+      setTimeout(() => map.invalidateSize(), 60);
+    }
+
+    function enterMapFullscreen() {
+      const req = mapEl.requestFullscreen || mapEl.webkitRequestFullscreen;
+      if (typeof req === "function") {
+        Promise.resolve(req.call(mapEl)).catch(() => {
+          pseudoFullscreen = true;
+          syncFullscreenUi();
+        });
+      } else {
+        pseudoFullscreen = true;
+        syncFullscreenUi();
+      }
+    }
+
+    function exitMapFullscreen() {
+      if (getFullscreenElement() === mapEl) {
+        const exit = document.exitFullscreen || document.webkitExitFullscreen;
+        if (typeof exit === "function") {
+          Promise.resolve(exit.call(document)).catch(() => {});
+        }
+      }
+      if (pseudoFullscreen) {
+        pseudoFullscreen = false;
+        syncFullscreenUi();
+      }
+    }
+
+    fullscreenBtn.addEventListener("click", () => {
+      if (isMapFullscreen()) {
+        exitMapFullscreen();
+      } else {
+        enterMapFullscreen();
+      }
+    });
+
+    exitFullscreenBtn.addEventListener("click", () => {
+      exitMapFullscreen();
+    });
+
+    document.addEventListener("fullscreenchange", syncFullscreenUi);
+    document.addEventListener("webkitfullscreenchange", syncFullscreenUi);
+
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && pseudoFullscreen) {
+        exitMapFullscreen();
+      }
     });
 
     const markers = [];
