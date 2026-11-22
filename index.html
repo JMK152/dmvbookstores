@@ -374,13 +374,8 @@
   </header>
 
   <div class="map-toolbar">
-    <span class="map-toolbar-label">Map style</span>
+    <span class="map-toolbar-label">Esri World Street Map</span>
     <div class="map-toolbar-controls">
-      <div class="style-buttons" role="group" aria-label="Map style switcher">
-        <button type="button" class="style-btn" data-style="rastertiles/voyager" aria-pressed="true">Voyager</button>
-        <button type="button" class="style-btn" data-style="light_all" aria-pressed="false">Positron</button>
-        <button type="button" class="style-btn" data-style="dark_all" aria-pressed="false">Dark Matter</button>
-      </div>
       <button type="button" id="fullscreenBtn" class="fullscreen-btn" aria-pressed="false">Full screen</button>
     </div>
   </div>
@@ -393,7 +388,7 @@
   <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
   <script>
     const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRJNe2Q3nsS690lAyyXttzpF0sOUs6w3MH6yqsrzM2OB0v9nE-V8HDHg2qiLHLt0PPWwUOU0f-JZzgr/pub?output=csv";
-    const CARTO_API_KEY = "cb1_5e2t_1_7d78e49b01374bdc84b7b14c";
+    const ESRI_STREET_TILE_URL = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}";
     const DC_BOUNDARY_GEOJSON_URL = "https://maps2.dcgis.dc.gov/dcgis/rest/services/DCGIS_DATA/Administrative_Other_Boundaries_WebMercator/MapServer/10/query?where=1%3D1&outFields=*&outSR=4326&f=geojson";
 
     // US Census counties layer filtered to DMV jurisdictions including Fairfax County (51059)
@@ -694,91 +689,46 @@
     let surroundingBoundaryLayer = null;
     let tileErrors = 0;
 
-    function getDcBoundaryStyle(stylePath) {
-      if (stylePath === "dark_all") {
-        return {
-          color: "#d1d5db",
-          weight: 2.5,
-          opacity: 0.9,
-          fill: false,
-          interactive: false
-        };
-      }
-      return {
-        color: "#374151",
-        weight: 2.5,
-        opacity: 0.9,
-        fill: false,
-        interactive: false
-      };
-    }
+    const DC_BOUNDARY_STYLE = {
+      color: "#374151",
+      weight: 2.5,
+      opacity: 0.9,
+      fill: false,
+      interactive: false
+    };
 
-    function getSurroundingBoundaryStyle(stylePath) {
-      if (stylePath === "dark_all") {
-        return {
-          color: "#6b7280",
-          weight: 1.5,
-          opacity: 0.75,
-          fill: false,
-          interactive: false
-        };
-      }
-      return {
-        color: "#9ca3af",
-        weight: 1.5,
-        opacity: 0.85,
-        fill: false,
-        interactive: false
-      };
-    }
+    const SURROUNDING_BOUNDARY_STYLE = {
+      color: "#9ca3af",
+      weight: 1.5,
+      opacity: 0.85,
+      fill: false,
+      interactive: false
+    };
 
-    function createCartoLayer(stylePath) {
-      tileErrors = 0;
-      updateBoundaryNotice();
-      const layer = L.tileLayer(`https://{s}.basemaps.cartocdn.com/${stylePath}/{z}/{x}/{y}{r}.png?key=${CARTO_API_KEY}`, {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a> | Boundaries: Open Data DC &amp; U.S. Census',
-        subdomains: "abcd",
-        maxZoom: 20
-      });
-      layer.on("tileerror", () => {
-        tileErrors += 1;
-        if (tileErrors >= 3) {
-          mapNoticeEl.textContent = "Some map tiles could not load—check your CARTO API key or domain restrictions.";
-        }
-      });
-      return layer;
-    }
-
-    function syncBoundaryLayers(stylePath) {
+    function syncBoundaryLayers() {
       if (surroundingBoundaryLayer) {
-        surroundingBoundaryLayer.setStyle(getSurroundingBoundaryStyle(stylePath));
+        surroundingBoundaryLayer.setStyle(SURROUNDING_BOUNDARY_STYLE);
         surroundingBoundaryLayer.bringToBack();
       }
       if (dcBoundaryLayer) {
-        dcBoundaryLayer.setStyle(getDcBoundaryStyle(stylePath));
+        dcBoundaryLayer.setStyle(DC_BOUNDARY_STYLE);
         dcBoundaryLayer.bringToFront();
       }
     }
 
-    function getActiveStylePath() {
-      const currentBtn = document.querySelector('.style-btn[aria-pressed="true"]');
-      return currentBtn ? currentBtn.dataset.style : "rastertiles/voyager";
-    }
-
-    function setMapStyle(stylePath) {
-      if (activeTileLayer) {
-        map.removeLayer(activeTileLayer);
+    tileErrors = 0;
+    updateBoundaryNotice();
+    activeTileLayer = L.tileLayer(ESRI_STREET_TILE_URL, {
+      attribution: "Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ, TomTom, Intermap, iPC, USGS, FAO, NPS, NRCAN, GeoBase, Kadaster NL, Ordnance Survey, Esri Japan, METI, Esri China (Hong Kong), and the GIS User Community | Boundaries: Open Data DC &amp; U.S. Census",
+      maxZoom: 19
+    });
+    activeTileLayer.on("tileerror", () => {
+      tileErrors += 1;
+      if (tileErrors >= 3) {
+        mapNoticeEl.textContent = "Some map tiles could not load from Esri World Street Map.";
       }
-      activeTileLayer = createCartoLayer(stylePath);
-      activeTileLayer.addTo(map);
-      syncBoundaryLayers(stylePath);
-
-      document.querySelectorAll(".style-btn").forEach(btn => {
-        btn.setAttribute("aria-pressed", btn.dataset.style === stylePath ? "true" : "false");
-      });
-    }
-
-    setMapStyle("rastertiles/voyager");
+    });
+    activeTileLayer.addTo(map);
 
     function fetchJsonWithTimeout(url, timeoutMs = 8000) {
       const controller = new AbortController();
@@ -817,10 +767,10 @@
         const filteredFeatures = geojson.features.filter(isTargetSurroundingFeature);
         const featuresToDraw = filteredFeatures.length > 0 ? filteredFeatures : geojson.features;
         surroundingBoundaryLayer = L.geoJSON({ type: "FeatureCollection", features: featuresToDraw }, {
-          style: () => getSurroundingBoundaryStyle(getActiveStylePath()),
+          style: () => SURROUNDING_BOUNDARY_STYLE,
           interactive: false
         }).addTo(map);
-        syncBoundaryLayers(getActiveStylePath());
+        syncBoundaryLayers();
       })
       .catch(err => {
         boundaryIssues.push("County outlines unavailable (" + err.message + ")");
@@ -833,21 +783,15 @@
           throw new Error("Empty features");
         }
         dcBoundaryLayer = L.geoJSON(geojson, {
-          style: () => getDcBoundaryStyle(getActiveStylePath()),
+          style: () => DC_BOUNDARY_STYLE,
           interactive: false
         }).addTo(map);
-        syncBoundaryLayers(getActiveStylePath());
+        syncBoundaryLayers();
       })
       .catch(err => {
         boundaryIssues.push("D.C. outline unavailable (" + err.message + ")");
         updateBoundaryNotice();
       });
-
-    document.querySelectorAll(".style-btn").forEach(btn => {
-      btn.addEventListener("click", () => {
-        setMapStyle(btn.dataset.style);
-      });
-    });
 
     const mapEl = document.getElementById("map");
     const fullscreenBtn = document.getElementById("fullscreenBtn");
