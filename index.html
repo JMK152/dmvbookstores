@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>D.C. Bookstores</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    body {
+      font-family: Georgia, serif;
+      max-width: 820px;
+      margin: 2rem auto;
+      padding: 0 1rem;
+      color: #222;
+      background: #fff;
+      line-height: 1.5;
+    }
+
+    h1 {
+      margin-bottom: 0.25rem;
+    }
+
+    .subtitle {
+      color: #666;
+      margin-top: 0;
+      margin-bottom: 1.5rem;
+    }
+
+    #map {
+      height: 360px;
+      margin-bottom: 2rem;
+      border: 1px solid #ddd;
+    }
+
+    .store {
+      padding: 1.25rem 0;
+      border-bottom: 1px solid #eee;
+    }
+
+    .store h2 {
+      margin: 0 0 0.25rem;
+      font-size: 1.25rem;
+    }
+
+    .meta {
+      font-family: sans-serif;
+      font-size: 0.85rem;
+      color: #666;
+      margin-bottom: 0.5rem;
+    }
+
+    .store p {
+      margin: 0 0 0.5rem;
+    }
+
+    .links {
+      font-family: sans-serif;
+      font-size: 0.9rem;
+    }
+
+    .links a {
+      margin-right: 1rem;
+      color: #0055cc;
+    }
+  </style>
+</head>
+<body>
+  <h1>D.C. Bookstores</h1>
+  <p class="subtitle">Independent bookstores in Washington, D.C. and bordering communities.</p>
+
+  <div id="map"></div>
+  <div id="list">Loading bookstores...</div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
+  <script>
+    const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRJNe2Q3nsS690lAyyXttzpF0sOUs6w3MH6yqsrzM2OB0v9nE-V8HDHg2qiLHLt0PPWwUOU0f-JZzgr/pub?output=csv";
+
+    const map = L.map("map").setView([38.9072, -77.0369], 12);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: "&copy; OpenStreetMap contributors"
+    }).addTo(map);
+
+    const listEl = document.getElementById("list");
+
+    Papa.parse(SHEET_CSV_URL, {
+      download: true,
+      header: true,
+      skipEmptyLines: true,
+      complete: function(results) {
+        const stores = results.data.filter(r => r.name && r.name.trim());
+        listEl.innerHTML = "";
+
+        stores.forEach(store => {
+          const lat = parseFloat(store.lat);
+          const lng = parseFloat(store.lng);
+          if (!isNaN(lat) && !isNaN(lng)) {
+            L.marker([lat, lng]).addTo(map).bindPopup(`<strong>${store.name}</strong><br>${store.address || ""}`);
+          }
+
+          const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((store.name || "") + " " + (store.address || ""))}`;
+          const item = document.createElement("div");
+          item.className = "store";
+          item.innerHTML = `
+            <h2>${store.name}</h2>
+            <div class="meta">${[store.neighborhood, store.quadrant, store.address].filter(Boolean).join(" · ")}</div>
+            <p>${store.description || ""}</p>
+            <div class="links">
+              <a href="${mapsUrl}" target="_blank" rel="noopener">Google Maps</a>
+              ${store.website ? `<a href="${store.website}" target="_blank" rel="noopener">Website</a>` : ""}
+            </div>
+          `;
+          listEl.appendChild(item);
+        });
+      },
+      error: function() {
+        listEl.textContent = "Unable to load spreadsheet data.";
+      }
+    });
+  </script>
+</body>
+</html>
