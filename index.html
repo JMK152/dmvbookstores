@@ -160,6 +160,12 @@
       border-bottom: 2px solid #18181b;
     }
 
+    .empty-region {
+      padding: 0.85rem 0;
+      color: #71717a;
+      font-size: 0.9rem;
+    }
+
     .store {
       padding: 1rem 0;
       border-bottom: 1px solid #e4e4e7;
@@ -546,25 +552,21 @@
         map.fitBounds(bounds, { padding: [24, 24] });
       }
 
-      const populatedHeadings = HEADING_ORDER.filter(heading => grouped[heading].length > 0);
+      const jumpNav = document.createElement("nav");
+      jumpNav.className = "jump-bar";
+      jumpNav.setAttribute("aria-label", "Jump to region heading");
 
-      if (populatedHeadings.length > 0) {
-        const jumpNav = document.createElement("nav");
-        jumpNav.className = "jump-bar";
-        jumpNav.setAttribute("aria-label", "Jump to region heading");
+      HEADING_ORDER.forEach(heading => {
+        const link = document.createElement("a");
+        link.className = "jump-link";
+        link.href = "#" + slugifyHeading(heading);
+        link.textContent = heading;
+        jumpNav.appendChild(link);
+      });
 
-        populatedHeadings.forEach(heading => {
-          const link = document.createElement("a");
-          link.className = "jump-link";
-          link.href = "#" + slugifyHeading(heading);
-          link.textContent = heading;
-          jumpNav.appendChild(link);
-        });
+      listEl.appendChild(jumpNav);
 
-        listEl.appendChild(jumpNav);
-      }
-
-      populatedHeadings.forEach(heading => {
+      HEADING_ORDER.forEach(heading => {
         const groupStores = grouped[heading].sort((a, b) =>
           a.name.trim().localeCompare(b.name.trim(), undefined, { sensitivity: "base" })
         );
@@ -577,6 +579,15 @@
         h2.className = "region-heading";
         h2.textContent = heading;
         section.appendChild(h2);
+
+        if (groupStores.length === 0) {
+          const emptyMsg = document.createElement("p");
+          emptyMsg.className = "empty-region";
+          emptyMsg.textContent = "No bookstores listed in this area yet.";
+          section.appendChild(emptyMsg);
+          listEl.appendChild(section);
+          return;
+        }
 
         groupStores.forEach(store => {
           const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((store.name || "") + " " + (store.address || ""))}`;
