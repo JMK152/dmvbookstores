@@ -13,6 +13,10 @@
       box-sizing: border-box;
     }
 
+    html {
+      scroll-behavior: smooth;
+    }
+
     body {
       font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       max-width: 820px;
@@ -94,7 +98,7 @@
 
     #map {
       height: 380px;
-      margin-bottom: 2.25rem;
+      margin-bottom: 1.75rem;
       border: 1px solid #e4e4e7;
       border-radius: 6px;
       background: #f4f4f5;
@@ -104,8 +108,39 @@
       font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     }
 
+    .jump-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.45rem;
+      padding: 0.75rem 0.85rem;
+      margin-bottom: 1.75rem;
+      background: #fafafa;
+      border: 1px solid #e4e4e7;
+      border-radius: 6px;
+    }
+
+    .jump-link {
+      display: inline-block;
+      padding: 0.28rem 0.6rem;
+      font-size: 0.82rem;
+      font-weight: 500;
+      color: #27272a;
+      background: #ffffff;
+      border: 1px solid #d4d4d8;
+      border-radius: 999px;
+      text-decoration: none;
+      transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+    }
+
+    .jump-link:hover {
+      background: #18181b;
+      border-color: #18181b;
+      color: #ffffff;
+    }
+
     .region-group {
       margin-top: 2.25rem;
+      scroll-margin-top: 1.25rem;
     }
 
     .region-heading {
@@ -206,38 +241,86 @@
     const CARTO_API_KEY = "cb1_5e2t_1_7d78e49b01374bdc84b7b14c";
     const DC_BOUNDARY_GEOJSON_URL = "https://maps2.dcgis.dc.gov/dcgis/rest/services/DCGIS_DATA/Administrative_Other_Boundaries_WebMercator/MapServer/10/query?where=1%3D1&outFields=*&outSR=4326&f=geojson";
 
+    // US Census Cartographic Boundary counties layer filtered to:
+    // 24031 = Montgomery County, MD | 24033 = Prince George's County, MD
+    // 51013 = Arlington County, VA | 51510 = Alexandria city, VA
+    const SURROUNDING_GEOJSON_URL = "https://services.arcgis.com/P3ePLMYs2RVChkJx/ArcGIS/rest/services/USA_Census_Counties/FeatureServer/0/query?where=GEOID%20IN%20(%2724031%27%2C%2724033%27%2C%2751013%27%2C%2751510%27)&outFields=GEOID,NAME,STATE_NAME&outSR=4326&f=geojson";
+
     const HEADING_ORDER = [
-      "NE DC",
-      "NW DC",
-      "SE DC",
-      "SW DC",
-      "Maryland",
-      "Virginia"
+      "DC - NE",
+      "DC - NW",
+      "DC - SE",
+      "DC - SW",
+      "MD - Montgomery County",
+      "MD - Prince Georges County",
+      "VA - Alexandria",
+      "VA - Arlington"
     ];
 
+    function slugifyHeading(heading) {
+      return "region-" + heading
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "");
+    }
+
     function normalizeHeading(quadrantValue) {
-      const q = (quadrantValue || "").trim().toUpperCase();
-      if (q === "NE" || q === "NE DC") return "NE DC";
-      if (q === "NW" || q === "NW DC") return "NW DC";
-      if (q === "SE" || q === "SE DC") return "SE DC";
-      if (q === "SW" || q === "SW DC") return "SW DC";
-      if (q === "MD" || q === "MARYLAND") return "Maryland";
-      if (q === "VA" || q === "VIRGINIA") return "Virginia";
-      return "NW DC";
+      const q = (quadrantValue || "")
+        .trim()
+        .toUpperCase()
+        .replace(/’/g, "'")
+        .replace(/\s+/g, " ");
+
+      if (q === "NE" || q === "NE DC" || q === "DC - NE" || q === "DC-NE") return "DC - NE";
+      if (q === "NW" || q === "NW DC" || q === "DC - NW" || q === "DC-NW") return "DC - NW";
+      if (q === "SE" || q === "SE DC" || q === "DC - SE" || q === "DC-SE") return "DC - SE";
+      if (q === "SW" || q === "SW DC" || q === "DC - SW" || q === "DC-SW") return "DC - SW";
+
+      if (
+        q.includes("MONTGOMERY") ||
+        q === "MOCO" ||
+        q === "MD - MONTGOMERY COUNTY" ||
+        q === "MD - MONTGOMERY"
+      ) {
+        return "MD - Montgomery County";
+      }
+
+      if (
+        q.includes("PRINCE GEORGE") ||
+        q === "PG" ||
+        q === "PG COUNTY" ||
+        q === "PRINCE GEORGES" ||
+        q === "PRINCE GEORGE'S" ||
+        q === "MD - PRINCE GEORGES COUNTY" ||
+        q === "MD - PRINCE GEORGE'S COUNTY"
+      ) {
+        return "MD - Prince Georges County";
+      }
+
+      if (q.includes("ALEXANDRIA") || q === "VA - ALEXANDRIA") {
+        return "VA - Alexandria";
+      }
+
+      if (q.includes("ARLINGTON") || q === "VA - ARLINGTON") {
+        return "VA - Arlington";
+      }
+
+      return "DC - NW";
     }
 
     const map = L.map("map", {
       zoomControl: true,
       scrollWheelZoom: false
-    }).setView([38.9072, -77.0369], 12);
+    }).setView([38.9072, -77.0369], 11);
 
     let activeTileLayer = null;
     let dcBoundaryLayer = null;
+    let surroundingBoundaryLayer = null;
 
-    function getBoundaryStyle(stylePath) {
+    function getDcBoundaryStyle(stylePath) {
       if (stylePath === "dark_all") {
         return {
-          color: "#f8fafc",
+          color: "#d1d5db",
           weight: 2.5,
           opacity: 0.9,
           fill: false,
@@ -245,169 +328,5 @@
         };
       }
       return {
-        color: "#312e81",
-        weight: 2.5,
-        opacity: 0.85,
-        fill: false,
-        interactive: false
-      };
-    }
-
-    function createCartoLayer(stylePath) {
-      return L.tileLayer(`https://{s}.basemaps.cartocdn.com/${stylePath}/{z}/{x}/{y}{r}.png?key=${CARTO_API_KEY}`, {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a> | Boundary: <a href="https://opendata.dc.gov/">Open Data DC</a>',
-        subdomains: "abcd",
-        maxZoom: 20
-      });
-    }
-
-    function setMapStyle(stylePath) {
-      if (activeTileLayer) {
-        map.removeLayer(activeTileLayer);
-      }
-      activeTileLayer = createCartoLayer(stylePath);
-      activeTileLayer.addTo(map);
-
-      if (dcBoundaryLayer) {
-        dcBoundaryLayer.setStyle(getBoundaryStyle(stylePath));
-        dcBoundaryLayer.bringToBack();
-      }
-
-      document.querySelectorAll(".style-btn").forEach(btn => {
-        btn.setAttribute("aria-pressed", btn.dataset.style === stylePath ? "true" : "false");
-      });
-    }
-
-    setMapStyle("rastertiles/voyager");
-
-    fetch(DC_BOUNDARY_GEOJSON_URL)
-      .then(response => {
-        if (!response.ok) throw new Error("Boundary fetch failed");
-        return response.json();
-      })
-      .then(geojson => {
-        const currentBtn = document.querySelector('.style-btn[aria-pressed="true"]');
-        const currentStyle = currentBtn ? currentBtn.dataset.style : "rastertiles/voyager";
-        dcBoundaryLayer = L.geoJSON(geojson, {
-          style: () => getBoundaryStyle(currentStyle),
-          interactive: false
-        }).addTo(map);
-        dcBoundaryLayer.bringToBack();
-      })
-      .catch(() => {
-        // Leave map working cleanly if the boundary service cannot be reached
-      });
-
-    document.querySelectorAll(".style-btn").forEach(btn => {
-      btn.addEventListener("click", () => {
-        setMapStyle(btn.dataset.style);
-      });
-    });
-
-    const listEl = document.getElementById("list");
-    const markers = [];
-
-    Papa.parse(SHEET_CSV_URL, {
-      download: true,
-      header: true,
-      skipEmptyLines: true,
-      complete: function(results) {
-        const stores = results.data.filter(r => r.name && r.name.trim());
-        listEl.innerHTML = "";
-        listEl.className = "";
-
-        const grouped = {};
-        HEADING_ORDER.forEach(h => {
-          grouped[h] = [];
-        });
-
-        stores.forEach(store => {
-          const heading = normalizeHeading(store.quadrant);
-          grouped[heading].push(store);
-
-          const lat = parseFloat(store.lat);
-          const lng = parseFloat(store.lng);
-          let marker = null;
-          if (!isNaN(lat) && !isNaN(lng)) {
-            marker = L.marker([lat, lng])
-              .addTo(map)
-              .bindPopup(`<strong>${store.name}</strong><br>${store.address || ""}`);
-            markers.push({ lat, lng, marker });
-          }
-          store._marker = marker;
-          store._lat = lat;
-          store._lng = lng;
-        });
-
-        if (markers.length > 0) {
-          const bounds = L.latLngBounds(markers.map(m => [m.lat, m.lng]));
-          map.fitBounds(bounds, { padding: [24, 24] });
-        }
-
-        HEADING_ORDER.forEach(heading => {
-          const groupStores = grouped[heading].sort((a, b) =>
-            a.name.trim().localeCompare(b.name.trim(), undefined, { sensitivity: "base" })
-          );
-
-          if (groupStores.length === 0) return;
-
-          const section = document.createElement("section");
-          section.className = "region-group";
-
-          const h2 = document.createElement("h2");
-          h2.className = "region-heading";
-          h2.textContent = heading;
-          section.appendChild(h2);
-
-          groupStores.forEach(store => {
-            const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((store.name || "") + " " + (store.address || ""))}`;
-            const item = document.createElement("article");
-            item.className = "store";
-
-            const titleHeading = document.createElement("h2");
-            const titleBtn = document.createElement("button");
-            titleBtn.type = "button";
-            titleBtn.className = "store-title-btn";
-            titleBtn.textContent = store.name;
-            if (store._marker && !isNaN(store._lat) && !isNaN(store._lng)) {
-              titleBtn.addEventListener("click", () => {
-                map.setView([store._lat, store._lng], 15);
-                store._marker.openPopup();
-                document.getElementById("map").scrollIntoView({ behavior: "smooth", block: "nearest" });
-              });
-            }
-            titleHeading.appendChild(titleBtn);
-            item.appendChild(titleHeading);
-
-            const metaDiv = document.createElement("div");
-            metaDiv.className = "meta";
-            metaDiv.textContent = [store.neighborhood, store.address].filter(Boolean).join(" · ");
-            item.appendChild(metaDiv);
-
-            if (store.description) {
-              const descP = document.createElement("p");
-              descP.textContent = store.description;
-              item.appendChild(descP);
-            }
-
-            const linksDiv = document.createElement("div");
-            linksDiv.className = "links";
-            linksDiv.innerHTML = `
-              <a href="${mapsUrl}" target="_blank" rel="noopener">Google Maps</a>
-              ${store.website ? `<a href="${store.website}" target="_blank" rel="noopener">Website</a>` : ""}
-            `;
-            item.appendChild(linksDiv);
-
-            section.appendChild(item);
-          });
-
-          listEl.appendChild(section);
-        });
-      },
-      error: function() {
-        listEl.textContent = "Unable to load spreadsheet data.";
-      }
-    });
-  </script>
-</body>
-</html>
+        color: "#374151",
+        weight: 2.5
