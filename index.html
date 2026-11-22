@@ -864,6 +864,11 @@
 
     function syncFullscreenUi() {
       const active = isMapFullscreen();
+      if (active) {
+        map.scrollWheelZoom.enable();
+      } else {
+        map.scrollWheelZoom.disable();
+      }
       fullscreenBtn.setAttribute("aria-pressed", active ? "true" : "false");
       fullscreenBtn.textContent = active ? "Exit full screen" : "Full screen";
       document.body.classList.toggle("map-any-fullscreen", active);
