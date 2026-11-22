@@ -62,28 +62,51 @@
       gap: 0.5rem;
     }
 
+    .leaflet-control-fullscreen {
+      margin-top: 10px !important;
+      margin-right: 10px !important;
+    }
+
     .fullscreen-btn {
-      appearance: none;
-      border: 1px solid #d4d4d8;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 34px;
+      height: 34px;
+      padding: 0;
+      border: 2px solid rgba(24, 24, 27, 0.22);
       border-radius: 6px;
-      background: #fafafa;
-      color: #27272a;
-      font-family: inherit;
-      font-size: 0.82rem;
-      font-weight: 500;
-      padding: 0.35rem 0.7rem;
+      background: rgba(255, 255, 255, 0.94);
+      color: #18181b;
       cursor: pointer;
-      transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+      box-shadow: 0 1px 5px rgba(0, 0, 0, 0.14);
+      transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.1s ease;
     }
 
     .fullscreen-btn:hover {
-      background: #f4f4f5;
+      background: #ffffff;
+      border-color: rgba(24, 24, 27, 0.4);
+    }
+
+    .fullscreen-btn:active {
+      transform: scale(0.97);
     }
 
     .fullscreen-btn[aria-pressed="true"] {
       background: #18181b;
       border-color: #18181b;
       color: #ffffff;
+    }
+
+    .fullscreen-btn svg {
+      width: 16px;
+      height: 16px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2.3;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      pointer-events: none;
     }
 
     #map:fullscreen {
@@ -398,9 +421,6 @@
 
   <div class="map-toolbar">
     <span class="map-toolbar-label">Esri World Topographic Map</span>
-    <div class="map-toolbar-controls">
-      <button type="button" id="fullscreenBtn" class="fullscreen-btn" aria-pressed="false">Full screen</button>
-    </div>
   </div>
   <div id="map"></div>
   <button type="button" id="exitFullscreenBtn" class="exit-fullscreen-floating-btn">Exit full screen</button>
@@ -817,9 +837,55 @@
       });
 
     const mapEl = document.getElementById("map");
-    const fullscreenBtn = document.getElementById("fullscreenBtn");
     const exitFullscreenBtn = document.getElementById("exitFullscreenBtn");
     let pseudoFullscreen = false;
+
+    const EXPAND_ICON_SVG = `
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M8 3H5a2 2 0 0 0-2 2v3" />
+        <path d="M16 3h3a2 2 0 0 1 2 2v3" />
+        <path d="M8 21H5a2 2 0 0 1-2-2v-3" />
+        <path d="M16 21h3a2 2 0 0 0 2-2v-3" />
+      </svg>
+    `;
+
+    const COLLAPSE_ICON_SVG = `
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M4 9h5V4" />
+        <path d="M20 9h-5V4" />
+        <path d="M4 15h5v5" />
+        <path d="M20 15h-5v5" />
+      </svg>
+    `;
+
+    const FullscreenControl = L.Control.extend({
+      options: { position: "topright" },
+      onAdd: function () {
+        const container = L.DomUtil.create("div", "leaflet-bar leaflet-control-fullscreen");
+        const btn = L.DomUtil.create("button", "fullscreen-btn", container);
+        btn.type = "button";
+        btn.id = "fullscreenBtn";
+        btn.setAttribute("aria-pressed", "false");
+        btn.setAttribute("aria-label", "Toggle full screen map");
+        btn.title = "Full screen";
+        btn.innerHTML = EXPAND_ICON_SVG;
+
+        L.DomEvent.disableClickPropagation(container);
+        L.DomEvent.on(btn, "click", (e) => {
+          L.DomEvent.preventDefault(e);
+          if (isMapFullscreen()) {
+            exitMapFullscreen();
+          } else {
+            enterMapFullscreen();
+          }
+        });
+
+        return container;
+      }
+    });
+
+    map.addControl(new FullscreenControl());
+    const fullscreenBtn = document.getElementById("fullscreenBtn");
 
     function getFullscreenElement() {
       return document.fullscreenElement || document.webkitFullscreenElement || null;
@@ -836,8 +902,11 @@
       } else {
         map.scrollWheelZoom.disable();
       }
-      fullscreenBtn.setAttribute("aria-pressed", active ? "true" : "false");
-      fullscreenBtn.textContent = active ? "Exit full screen" : "Full screen";
+      if (fullscreenBtn) {
+        fullscreenBtn.setAttribute("aria-pressed", active ? "true" : "false");
+        fullscreenBtn.title = active ? "Exit full screen" : "Full screen";
+        fullscreenBtn.innerHTML = active ? COLLAPSE_ICON_SVG : EXPAND_ICON_SVG;
+      }
       document.body.classList.toggle("map-any-fullscreen", active);
       document.body.classList.toggle("map-pseudo-fullscreen", pseudoFullscreen);
       mapEl.classList.toggle("map-pseudo-fullscreen", pseudoFullscreen);
@@ -869,14 +938,6 @@
         syncFullscreenUi();
       }
     }
-
-    fullscreenBtn.addEventListener("click", () => {
-      if (isMapFullscreen()) {
-        exitMapFullscreen();
-      } else {
-        enterMapFullscreen();
-      }
-    });
 
     exitFullscreenBtn.addEventListener("click", () => {
       exitMapFullscreen();
