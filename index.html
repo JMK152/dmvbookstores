@@ -432,11 +432,11 @@
       "DC - NW",
       "DC - SE",
       "DC - SW",
-      "MD - Montgomery County",
-      "MD - Prince Georges County",
+      "MD - Montgomery",
+      "MD - Prince Georges",
       "VA - Alexandria",
       "VA - Arlington",
-      "VA - Fairfax County"
+      "VA - Fairfax"
     ];
 
     const JURISDICTION_GROUPS = [
@@ -452,19 +452,19 @@
       },
       {
         label: "MD",
-        headings: ["MD - Montgomery County", "MD - Prince Georges County"],
+        headings: ["MD - Montgomery", "MD - Prince Georges"],
         shortLabels: {
-          "MD - Montgomery County": "Montgomery County",
-          "MD - Prince Georges County": "Prince Georges County"
+          "MD - Montgomery": "Montgomery",
+          "MD - Prince Georges": "Prince Georges"
         }
       },
       {
         label: "VA",
-        headings: ["VA - Alexandria", "VA - Arlington", "VA - Fairfax County"],
+        headings: ["VA - Alexandria", "VA - Arlington", "VA - Fairfax"],
         shortLabels: {
           "VA - Alexandria": "Alexandria",
           "VA - Arlington": "Arlington",
-          "VA - Fairfax County": "Fairfax County"
+          "VA - Fairfax": "Fairfax"
         }
       }
     ];
@@ -642,7 +642,7 @@
         q === "MD - MONTGOMERY COUNTY" ||
         q === "MD - MONTGOMERY"
       ) {
-        return "MD - Montgomery County";
+        return "MD - Montgomery";
       }
 
       if (
@@ -654,11 +654,11 @@
         q === "MD - PRINCE GEORGES COUNTY" ||
         q === "MD - PRINCE GEORGE'S COUNTY"
       ) {
-        return "MD - Prince Georges County";
+        return "MD - Prince Georges";
       }
 
       if (q.includes("FAIRFAX") || q === "VA - FAIRFAX COUNTY" || q === "VA - FAIRFAX") {
-        return "VA - Fairfax County";
+        return "VA - Fairfax";
       }
 
       if (q.includes("ALEXANDRIA") || q === "VA - ALEXANDRIA") {
@@ -671,20 +671,20 @@
 
       if (q === "MD" || q === "MARYLAND") {
         if (locationText.includes("PRINCE GEORGE") || PG_PLACES.some(place => locationText.includes(place))) {
-          return "MD - Prince Georges County";
+          return "MD - Prince Georges";
         }
         if (locationText.includes("MONTGOMERY") || MOCO_PLACES.some(place => locationText.includes(place))) {
-          return "MD - Montgomery County";
+          return "MD - Montgomery";
         }
         if (hasCoords) {
-          return lng > -77.01 ? "MD - Prince Georges County" : "MD - Montgomery County";
+          return lng > -77.01 ? "MD - Prince Georges" : "MD - Montgomery";
         }
-        return "MD - Prince Georges County";
+        return "MD - Prince Georges";
       }
 
       if (q === "VA" || q === "VIRGINIA") {
         if (FAIRFAX_PLACES.some(place => locationText.includes(place))) {
-          return "VA - Fairfax County";
+          return "VA - Fairfax";
         }
         if (ALEXANDRIA_PLACES.some(place => locationText.includes(place))) {
           return "VA - Alexandria";
@@ -693,7 +693,7 @@
           return "VA - Arlington";
         }
         if (hasCoords) {
-          if (lng < -77.145) return "VA - Fairfax County";
+          if (lng < -77.145) return "VA - Fairfax";
           return lat < 38.835 ? "VA - Alexandria" : "VA - Arlington";
         }
         return "VA - Arlington";
