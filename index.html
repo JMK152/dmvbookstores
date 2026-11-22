@@ -280,6 +280,51 @@
       "VA - Arlington"
     ];
 
+    const PG_PLACES = [
+      "HYATTSVILLE",
+      "COLLEGE PARK",
+      "GREENBELT",
+      "LAUREL",
+      "BOWIE",
+      "RIVERDALE",
+      "MOUNT RAINIER",
+      "MT RAINIER",
+      "BLADENSBURG",
+      "BERWYN HEIGHTS",
+      "NEW CARROLLTON",
+      "LANHAM",
+      "LARGO",
+      "UPPER MARLBORO",
+      "FORT WASHINGTON",
+      "OXON HILL",
+      "TEMPLE HILLS",
+      "SUITLAND",
+      "DISTRICT HEIGHTS",
+      "CAPITOL HEIGHTS",
+      "CHEVERLY",
+      "EDMONSTON",
+      "BRENTWOOD",
+      "ADELPHI"
+    ];
+
+    const MOCO_PLACES = [
+      "BETHESDA",
+      "SILVER SPRING",
+      "ROCKVILLE",
+      "CHEVY CHASE",
+      "KENSINGTON",
+      "GAITHERSBURG",
+      "GERMANTOWN",
+      "POTOMAC",
+      "WHEATON",
+      "TAKOMA PARK",
+      "OLNEY",
+      "CABIN JOHN",
+      "GARRETT PARK",
+      "SOMERSET",
+      "GLEN ECHO"
+    ];
+
     const listEl = document.getElementById("list");
     const mapNoticeEl = document.getElementById("mapNotice");
     const boundaryIssues = [];
@@ -308,12 +353,20 @@
         .replace(/^-+|-+$/g, "");
     }
 
-    function normalizeHeading(quadrantValue) {
-      const q = (quadrantValue || "")
+    function normalizeHeading(store) {
+      const rawQuadrant = typeof store === "string" ? store : (store.quadrant || "");
+      const q = rawQuadrant
         .trim()
         .toUpperCase()
         .replace(/’/g, "'")
         .replace(/\s+/g, " ");
+
+      const locationText = typeof store === "string"
+        ? ""
+        : [store.neighborhood || "", store.address || ""]
+            .join(" ")
+            .toUpperCase()
+            .replace(/’/g, "'");
 
       if (q === "NE" || q === "NE DC" || q === "DC - NE" || q === "DC-NE") return "DC - NE";
       if (q === "NW" || q === "NW DC" || q === "DC - NW" || q === "DC-NW") return "DC - NW";
@@ -349,8 +402,25 @@
         return "VA - Arlington";
       }
 
-      if (q === "MD" || q === "MARYLAND") return "MD - Montgomery County";
-      if (q === "VA" || q === "VIRGINIA") return "VA - Arlington";
+      if (q === "MD" || q === "MARYLAND") {
+        if (locationText.includes("PRINCE GEORGE") || PG_PLACES.some(place => locationText.includes(place))) {
+          return "MD - Prince Georges County";
+        }
+        if (locationText.includes("MONTGOMERY") || MOCO_PLACES.some(place => locationText.includes(place))) {
+          return "MD - Montgomery County";
+        }
+        return "MD - Prince Georges County";
+      }
+
+      if (q === "VA" || q === "VIRGINIA") {
+        if (locationText.includes("ALEXANDRIA")) {
+          return "VA - Alexandria";
+        }
+        if (locationText.includes("ARLINGTON")) {
+          return "VA - Arlington";
+        }
+        return "VA - Arlington";
+      }
 
       return "DC - NW";
     }
@@ -530,7 +600,7 @@
       });
 
       stores.forEach(store => {
-        const heading = normalizeHeading(store.quadrant);
+        const heading = normalizeHeading(store);
         grouped[heading].push(store);
 
         const lat = parseFloat(store.lat);
