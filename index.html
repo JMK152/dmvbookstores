@@ -98,10 +98,17 @@
 
     #map {
       height: 380px;
-      margin-bottom: 1.75rem;
+      margin-bottom: 0.6rem;
       border: 1px solid #e4e4e7;
       border-radius: 6px;
       background: #f4f4f5;
+    }
+
+    .map-notice {
+      font-size: 0.8rem;
+      color: #71717a;
+      margin-bottom: 1.5rem;
+      min-height: 1.1em;
     }
 
     .leaflet-container {
@@ -215,6 +222,15 @@
       color: #71717a;
       font-size: 0.95rem;
     }
+
+    .error-box {
+      padding: 0.85rem 1rem;
+      border: 1px solid #fecaca;
+      background: #fef2f2;
+      color: #991b1b;
+      border-radius: 6px;
+      font-size: 0.9rem;
+    }
   </style>
 </head>
 <body>
@@ -226,15 +242,4 @@
   <div class="map-toolbar">
     <span class="map-toolbar-label">Map style</span>
     <div class="style-buttons" role="group" aria-label="Map style switcher">
-      <button type="button" class="style-btn" data-style="rastertiles/voyager" aria-pressed="true">Voyager</button>
-      <button type="button" class="style-btn" data-style="light_all" aria-pressed="false">Positron</button>
-      <button type="button" class="style-btn" data-style="dark_all" aria-pressed="false">Dark Matter</button>
-    </div>
-  </div>
-  <div id="map"></div>
-  <div id="list" class="status">Loading bookstores...</div>
-
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
-  <script>
-    const SHEET_CSV_URL = "
+      <button type="button" class="style-btn" data-style="rastertiles/voyager" aria
