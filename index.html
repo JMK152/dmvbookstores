@@ -374,7 +374,7 @@
   </header>
 
   <div class="map-toolbar">
-    <span class="map-toolbar-label">Esri World Street Map</span>
+    <span class="map-toolbar-label">OpenStreetMap Standard</span>
     <div class="map-toolbar-controls">
       <button type="button" id="fullscreenBtn" class="fullscreen-btn" aria-pressed="false">Full screen</button>
     </div>
@@ -388,7 +388,7 @@
   <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
   <script>
     const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRJNe2Q3nsS690lAyyXttzpF0sOUs6w3MH6yqsrzM2OB0v9nE-V8HDHg2qiLHLt0PPWwUOU0f-JZzgr/pub?output=csv";
-    const ESRI_STREET_TILE_URL = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}";
+    const OSM_STANDARD_TILE_URL = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
     const DC_BOUNDARY_GEOJSON_URL = "https://maps2.dcgis.dc.gov/dcgis/rest/services/DCGIS_DATA/Administrative_Other_Boundaries_WebMercator/MapServer/10/query?where=1%3D1&outFields=*&outSR=4326&f=geojson";
 
     // US Census counties layer filtered to DMV jurisdictions including Fairfax County (51059)
@@ -718,14 +718,14 @@
 
     tileErrors = 0;
     updateBoundaryNotice();
-    activeTileLayer = L.tileLayer(ESRI_STREET_TILE_URL, {
-      attribution: "Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ, TomTom, Intermap, iPC, USGS, FAO, NPS, NRCAN, GeoBase, Kadaster NL, Ordnance Survey, Esri Japan, METI, Esri China (Hong Kong), and the GIS User Community | Boundaries: Open Data DC &amp; U.S. Census",
+    activeTileLayer = L.tileLayer(OSM_STANDARD_TILE_URL, {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors | Boundaries: Open Data DC &amp; U.S. Census',
       maxZoom: 19
     });
     activeTileLayer.on("tileerror", () => {
       tileErrors += 1;
       if (tileErrors >= 3) {
-        mapNoticeEl.textContent = "Some map tiles could not load from Esri World Street Map.";
+        mapNoticeEl.textContent = "Some map tiles could not load from OpenStreetMap.";
       }
     });
     activeTileLayer.addTo(map);
