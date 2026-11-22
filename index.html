@@ -42,6 +42,56 @@
       font-size: 1rem;
     }
 
+    .map-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-bottom: 0.6rem;
+    }
+
+    .map-toolbar-label {
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: #52525b;
+    }
+
+    .style-buttons {
+      display: inline-flex;
+      border: 1px solid #d4d4d8;
+      border-radius: 6px;
+      overflow: hidden;
+      background: #fafafa;
+    }
+
+    .style-btn {
+      appearance: none;
+      border: none;
+      border-right: 1px solid #d4d4d8;
+      background: transparent;
+      color: #27272a;
+      font-family: inherit;
+      font-size: 0.82rem;
+      font-weight: 500;
+      padding: 0.35rem 0.7rem;
+      cursor: pointer;
+      transition: background-color 0.15s ease, color 0.15s ease;
+    }
+
+    .style-btn:last-child {
+      border-right: none;
+    }
+
+    .style-btn:hover {
+      background: #f4f4f5;
+    }
+
+    .style-btn[aria-pressed="true"] {
+      background: #18181b;
+      color: #ffffff;
+    }
+
     #map {
       height: 380px;
       margin-bottom: 2.25rem;
@@ -138,6 +188,14 @@
     <p class="subtitle">Independent bookstores in Washington, D.C. and bordering communities.</p>
   </header>
 
+  <div class="map-toolbar">
+    <span class="map-toolbar-label">Map style</span>
+    <div class="style-buttons" role="group" aria-label="Map style switcher">
+      <button type="button" class="style-btn" data-style="light_all" aria-pressed="true">Positron</button>
+      <button type="button" class="style-btn" data-style="rastertiles/voyager" aria-pressed="false">Voyager</button>
+      <button type="button" class="style-btn" data-style="dark_all" aria-pressed="false">Dark Matter</button>
+    </div>
+  </div>
   <div id="map"></div>
   <div id="list" class="status">Loading bookstores...</div>
 
@@ -172,11 +230,35 @@
       scrollWheelZoom: false
     }).setView([38.9072, -77.0369], 12);
 
-    L.tileLayer(`https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png?key=${CARTO_API_KEY}`, {
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
-      subdomains: "abcd",
-      maxZoom: 20
-    }).addTo(map);
+    let activeTileLayer = null;
+
+    function createCartoLayer(stylePath) {
+      return L.tileLayer(`https://{s}.basemaps.cartocdn.com/${stylePath}/{z}/{x}/{y}{r}.png?key=${CARTO_API_KEY}`, {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+        subdomains: "abcd",
+        maxZoom: 20
+      });
+    }
+
+    function setMapStyle(stylePath) {
+      if (activeTileLayer) {
+        map.removeLayer(activeTileLayer);
+      }
+      activeTileLayer = createCartoLayer(stylePath);
+      activeTileLayer.addTo(map);
+
+      document.querySelectorAll(".style-btn").forEach(btn => {
+        btn.setAttribute("aria-pressed", btn.dataset.style === stylePath ? "true" : "false");
+      });
+    }
+
+    setMapStyle("light_all");
+
+    document.querySelectorAll(".style-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        setMapStyle(btn.dataset.style);
+      });
+    });
 
     const listEl = document.getElementById("list");
     const markers = [];
