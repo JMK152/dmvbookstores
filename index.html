@@ -258,7 +258,7 @@
     const CARTO_API_KEY = "cb1_5e2t_1_7d78e49b01374bdc84b7b14c";
     const DC_BOUNDARY_GEOJSON_URL = "https://maps2.dcgis.dc.gov/dcgis/rest/services/DCGIS_DATA/Administrative_Other_Boundaries_WebMercator/MapServer/10/query?where=1%3D1&outFields=*&outSR=4326&f=geojson";
 
-    // US Census Cartographic Boundary counties layer filtered to:
+    // US Census counties layer filtered to:
     // 24031 = Montgomery County, MD | 24033 = Prince George's County, MD
     // 51013 = Arlington County, VA | 51510 = Alexandria city, VA
     const SURROUNDING_GEOJSON_URL = "https://services.arcgis.com/P3ePLMYs2RVChkJx/ArcGIS/rest/services/USA_Census_Counties/FeatureServer/0/query?where=GEOID%20IN%20(%2724031%27%2C%2724033%27%2C%2751013%27%2C%2751510%27)&outFields=GEOID,NAME,STATE_NAME&outSR=4326&f=geojson";
@@ -276,6 +276,13 @@
 
     const listEl = document.getElementById("list");
     const mapNoticeEl = document.getElementById("mapNotice");
+    const boundaryIssues = [];
+
+    function updateBoundaryNotice() {
+      if (boundaryIssues.length > 0) {
+        mapNoticeEl.textContent = "Boundary note: " + boundaryIssues.join(" · ");
+      }
+    }
 
     function showListError(message) {
       listEl.className = "error-box";
@@ -336,6 +343,9 @@
         return "VA - Arlington";
       }
 
+      if (q === "MD" || q === "MARYLAND") return "MD - Montgomery County";
+      if (q === "VA" || q === "VIRGINIA") return "VA - Arlington";
+
       return "DC - NW";
     }
 
@@ -389,7 +399,9 @@
 
     function createCartoLayer(stylePath) {
       tileErrors = 0;
-      mapNoticeEl.textContent = "";
+      if (boundaryIssues.length === 0) {
+        mapNoticeEl.textContent = "";
+      }
       const layer = L.tileLayer(`https://{s}.basemaps.cartocdn.com/${stylePath}/{z}/{x}/{y}{r}.png?key=${CARTO_API_KEY}`, {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a> | Boundaries: Open Data DC &amp; U.S. Census',
         subdomains: "abcd",
@@ -435,7 +447,7 @@
 
     setMapStyle("rastertiles/voyager");
 
-    function fetchJsonWithTimeout(url, timeoutMs = 6000) {
+    function fetchJsonWithTimeout(url, timeoutMs = 8000) {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), timeoutMs);
       return fetch(url, { signal: controller.signal })
@@ -448,23 +460,35 @@
 
     fetchJsonWithTimeout(SURROUNDING_GEOJSON_URL)
       .then(geojson => {
+        if (!geojson || !Array.isArray(geojson.features) || geojson.features.length === 0) {
+          throw new Error("Empty features");
+        }
         surroundingBoundaryLayer = L.geoJSON(geojson, {
           style: () => getSurroundingBoundaryStyle(getActiveStylePath()),
           interactive: false
         }).addTo(map);
         syncBoundaryLayers(getActiveStylePath());
       })
-      .catch(() => {});
+      .catch(err => {
+        boundaryIssues.push("County outlines unavailable (" + err.message + ")");
+        updateBoundaryNotice();
+      });
 
     fetchJsonWithTimeout(DC_BOUNDARY_GEOJSON_URL)
       .then(geojson => {
+        if (!geojson || !Array.isArray(geojson.features) || geojson.features.length === 0) {
+          throw new Error("Empty features");
+        }
         dcBoundaryLayer = L.geoJSON(geojson, {
           style: () => getDcBoundaryStyle(getActiveStylePath()),
           interactive: false
         }).addTo(map);
         syncBoundaryLayers(getActiveStylePath());
       })
-      .catch(() => {});
+      .catch(err => {
+        boundaryIssues.push("D.C. outline unavailable (" + err.message + ")");
+        updateBoundaryNotice();
+      });
 
     document.querySelectorAll(".style-btn").forEach(btn => {
       btn.addEventListener("click", () => {
