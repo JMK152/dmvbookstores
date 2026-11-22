@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>D.C. Bookstores</title>
+  <title>DMV Bookstores</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
@@ -219,8 +219,8 @@
 </head>
 <body>
   <header>
-    <h1>D.C. Bookstores</h1>
-    <p class="subtitle">Independent bookstores in Washington, D.C. and bordering communities.</p>
+    <h1>DMV Bookstores</h1>
+    <p class="subtitle">Independent bookstores across Washington, D.C., Maryland, and Northern Virginia.</p>
   </header>
 
   <div class="map-toolbar">
@@ -237,96 +237,4 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
   <script>
-    const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRJNe2Q3nsS690lAyyXttzpF0sOUs6w3MH6yqsrzM2OB0v9nE-V8HDHg2qiLHLt0PPWwUOU0f-JZzgr/pub?output=csv";
-    const CARTO_API_KEY = "cb1_5e2t_1_7d78e49b01374bdc84b7b14c";
-    const DC_BOUNDARY_GEOJSON_URL = "https://maps2.dcgis.dc.gov/dcgis/rest/services/DCGIS_DATA/Administrative_Other_Boundaries_WebMercator/MapServer/10/query?where=1%3D1&outFields=*&outSR=4326&f=geojson";
-
-    // US Census Cartographic Boundary counties layer filtered to:
-    // 24031 = Montgomery County, MD | 24033 = Prince George's County, MD
-    // 51013 = Arlington County, VA | 51510 = Alexandria city, VA
-    const SURROUNDING_GEOJSON_URL = "https://services.arcgis.com/P3ePLMYs2RVChkJx/ArcGIS/rest/services/USA_Census_Counties/FeatureServer/0/query?where=GEOID%20IN%20(%2724031%27%2C%2724033%27%2C%2751013%27%2C%2751510%27)&outFields=GEOID,NAME,STATE_NAME&outSR=4326&f=geojson";
-
-    const HEADING_ORDER = [
-      "DC - NE",
-      "DC - NW",
-      "DC - SE",
-      "DC - SW",
-      "MD - Montgomery County",
-      "MD - Prince Georges County",
-      "VA - Alexandria",
-      "VA - Arlington"
-    ];
-
-    function slugifyHeading(heading) {
-      return "region-" + heading
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/^-+|-+$/g, "");
-    }
-
-    function normalizeHeading(quadrantValue) {
-      const q = (quadrantValue || "")
-        .trim()
-        .toUpperCase()
-        .replace(/’/g, "'")
-        .replace(/\s+/g, " ");
-
-      if (q === "NE" || q === "NE DC" || q === "DC - NE" || q === "DC-NE") return "DC - NE";
-      if (q === "NW" || q === "NW DC" || q === "DC - NW" || q === "DC-NW") return "DC - NW";
-      if (q === "SE" || q === "SE DC" || q === "DC - SE" || q === "DC-SE") return "DC - SE";
-      if (q === "SW" || q === "SW DC" || q === "DC - SW" || q === "DC-SW") return "DC - SW";
-
-      if (
-        q.includes("MONTGOMERY") ||
-        q === "MOCO" ||
-        q === "MD - MONTGOMERY COUNTY" ||
-        q === "MD - MONTGOMERY"
-      ) {
-        return "MD - Montgomery County";
-      }
-
-      if (
-        q.includes("PRINCE GEORGE") ||
-        q === "PG" ||
-        q === "PG COUNTY" ||
-        q === "PRINCE GEORGES" ||
-        q === "PRINCE GEORGE'S" ||
-        q === "MD - PRINCE GEORGES COUNTY" ||
-        q === "MD - PRINCE GEORGE'S COUNTY"
-      ) {
-        return "MD - Prince Georges County";
-      }
-
-      if (q.includes("ALEXANDRIA") || q === "VA - ALEXANDRIA") {
-        return "VA - Alexandria";
-      }
-
-      if (q.includes("ARLINGTON") || q === "VA - ARLINGTON") {
-        return "VA - Arlington";
-      }
-
-      return "DC - NW";
-    }
-
-    const map = L.map("map", {
-      zoomControl: true,
-      scrollWheelZoom: false
-    }).setView([38.9072, -77.0369], 11);
-
-    let activeTileLayer = null;
-    let dcBoundaryLayer = null;
-    let surroundingBoundaryLayer = null;
-
-    function getDcBoundaryStyle(stylePath) {
-      if (stylePath === "dark_all") {
-        return {
-          color: "#d1d5db",
-          weight: 2.5,
-          opacity: 0.9,
-          fill: false,
-          interactive: false
-        };
-      }
-      return {
-        color: "#374151",
-        weight: 2.5
+    const SHEET_CSV_URL = "
