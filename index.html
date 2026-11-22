@@ -242,4 +242,373 @@
   <div class="map-toolbar">
     <span class="map-toolbar-label">Map style</span>
     <div class="style-buttons" role="group" aria-label="Map style switcher">
-      <button type="button" class="style-btn" data-style="rastertiles/voyager" aria
+      <button type="button" class="style-btn" data-style="rastertiles/voyager" aria-pressed="true">Voyager</button>
+      <button type="button" class="style-btn" data-style="light_all" aria-pressed="false">Positron</button>
+      <button type="button" class="style-btn" data-style="dark_all" aria-pressed="false">Dark Matter</button>
+    </div>
+  </div>
+  <div id="map"></div>
+  <div id="mapNotice" class="map-notice"></div>
+  <div id="list" class="status">Loading bookstores...</div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
+  <script>
+    const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRJNe2Q3nsS690lAyyXttzpF0sOUs6w3MH6yqsrzM2OB0v9nE-V8HDHg2qiLHLt0PPWwUOU0f-JZzgr/pub?output=csv";
+    const CARTO_API_KEY = "cb1_5e2t_1_7d78e49b01374bdc84b7b14c";
+    const DC_BOUNDARY_GEOJSON_URL = "https://maps2.dcgis.dc.gov/dcgis/rest/services/DCGIS_DATA/Administrative_Other_Boundaries_WebMercator/MapServer/10/query?where=1%3D1&outFields=*&outSR=4326&f=geojson";
+
+    // US Census Cartographic Boundary counties layer filtered to:
+    // 24031 = Montgomery County, MD | 24033 = Prince George's County, MD
+    // 51013 = Arlington County, VA | 51510 = Alexandria city, VA
+    const SURROUNDING_GEOJSON_URL = "https://services.arcgis.com/P3ePLMYs2RVChkJx/ArcGIS/rest/services/USA_Census_Counties/FeatureServer/0/query?where=GEOID%20IN%20(%2724031%27%2C%2724033%27%2C%2751013%27%2C%2751510%27)&outFields=GEOID,NAME,STATE_NAME&outSR=4326&f=geojson";
+
+    const HEADING_ORDER = [
+      "DC - NE",
+      "DC - NW",
+      "DC - SE",
+      "DC - SW",
+      "MD - Montgomery County",
+      "MD - Prince Georges County",
+      "VA - Alexandria",
+      "VA - Arlington"
+    ];
+
+    const listEl = document.getElementById("list");
+    const mapNoticeEl = document.getElementById("mapNotice");
+
+    function showListError(message) {
+      listEl.className = "error-box";
+      listEl.textContent = message;
+    }
+
+    window.addEventListener("error", (event) => {
+      if (listEl && listEl.textContent === "Loading bookstores...") {
+        showListError("Script error: " + (event.message || "Unable to initialize page."));
+      }
+    });
+
+    function slugifyHeading(heading) {
+      return "region-" + heading
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "");
+    }
+
+    function normalizeHeading(quadrantValue) {
+      const q = (quadrantValue || "")
+        .trim()
+        .toUpperCase()
+        .replace(/’/g, "'")
+        .replace(/\s+/g, " ");
+
+      if (q === "NE" || q === "NE DC" || q === "DC - NE" || q === "DC-NE") return "DC - NE";
+      if (q === "NW" || q === "NW DC" || q === "DC - NW" || q === "DC-NW") return "DC - NW";
+      if (q === "SE" || q === "SE DC" || q === "DC - SE" || q === "DC-SE") return "DC - SE";
+      if (q === "SW" || q === "SW DC" || q === "DC - SW" || q === "DC-SW") return "DC - SW";
+
+      if (
+        q.includes("MONTGOMERY") ||
+        q === "MOCO" ||
+        q === "MD - MONTGOMERY COUNTY" ||
+        q === "MD - MONTGOMERY"
+      ) {
+        return "MD - Montgomery County";
+      }
+
+      if (
+        q.includes("PRINCE GEORGE") ||
+        q === "PG" ||
+        q === "PG COUNTY" ||
+        q === "PRINCE GEORGES" ||
+        q === "PRINCE GEORGE'S" ||
+        q === "MD - PRINCE GEORGES COUNTY" ||
+        q === "MD - PRINCE GEORGE'S COUNTY"
+      ) {
+        return "MD - Prince Georges County";
+      }
+
+      if (q.includes("ALEXANDRIA") || q === "VA - ALEXANDRIA") {
+        return "VA - Alexandria";
+      }
+
+      if (q.includes("ARLINGTON") || q === "VA - ARLINGTON") {
+        return "VA - Arlington";
+      }
+
+      return "DC - NW";
+    }
+
+    const map = L.map("map", {
+      zoomControl: true,
+      scrollWheelZoom: false
+    }).setView([38.9072, -77.0369], 11);
+
+    let activeTileLayer = null;
+    let dcBoundaryLayer = null;
+    let surroundingBoundaryLayer = null;
+    let tileErrors = 0;
+
+    function getDcBoundaryStyle(stylePath) {
+      if (stylePath === "dark_all") {
+        return {
+          color: "#d1d5db",
+          weight: 2.5,
+          opacity: 0.9,
+          fill: false,
+          interactive: false
+        };
+      }
+      return {
+        color: "#374151",
+        weight: 2.5,
+        opacity: 0.9,
+        fill: false,
+        interactive: false
+      };
+    }
+
+    function getSurroundingBoundaryStyle(stylePath) {
+      if (stylePath === "dark_all") {
+        return {
+          color: "#6b7280",
+          weight: 1.5,
+          opacity: 0.75,
+          fill: false,
+          interactive: false
+        };
+      }
+      return {
+        color: "#9ca3af",
+        weight: 1.5,
+        opacity: 0.85,
+        fill: false,
+        interactive: false
+      };
+    }
+
+    function createCartoLayer(stylePath) {
+      tileErrors = 0;
+      mapNoticeEl.textContent = "";
+      const layer = L.tileLayer(`https://{s}.basemaps.cartocdn.com/${stylePath}/{z}/{x}/{y}{r}.png?key=${CARTO_API_KEY}`, {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a> | Boundaries: Open Data DC &amp; U.S. Census',
+        subdomains: "abcd",
+        maxZoom: 20
+      });
+      layer.on("tileerror", () => {
+        tileErrors += 1;
+        if (tileErrors >= 3) {
+          mapNoticeEl.textContent = "Some map tiles could not load—check your CARTO API key or domain restrictions.";
+        }
+      });
+      return layer;
+    }
+
+    function syncBoundaryLayers(stylePath) {
+      if (surroundingBoundaryLayer) {
+        surroundingBoundaryLayer.setStyle(getSurroundingBoundaryStyle(stylePath));
+        surroundingBoundaryLayer.bringToBack();
+      }
+      if (dcBoundaryLayer) {
+        dcBoundaryLayer.setStyle(getDcBoundaryStyle(stylePath));
+        dcBoundaryLayer.bringToFront();
+      }
+    }
+
+    function getActiveStylePath() {
+      const currentBtn = document.querySelector('.style-btn[aria-pressed="true"]');
+      return currentBtn ? currentBtn.dataset.style : "rastertiles/voyager";
+    }
+
+    function setMapStyle(stylePath) {
+      if (activeTileLayer) {
+        map.removeLayer(activeTileLayer);
+      }
+      activeTileLayer = createCartoLayer(stylePath);
+      activeTileLayer.addTo(map);
+      syncBoundaryLayers(stylePath);
+
+      document.querySelectorAll(".style-btn").forEach(btn => {
+        btn.setAttribute("aria-pressed", btn.dataset.style === stylePath ? "true" : "false");
+      });
+    }
+
+    setMapStyle("rastertiles/voyager");
+
+    function fetchJsonWithTimeout(url, timeoutMs = 6000) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
+      return fetch(url, { signal: controller.signal })
+        .then(res => {
+          if (!res.ok) throw new Error("HTTP " + res.status);
+          return res.json();
+        })
+        .finally(() => clearTimeout(timer));
+    }
+
+    fetchJsonWithTimeout(SURROUNDING_GEOJSON_URL)
+      .then(geojson => {
+        surroundingBoundaryLayer = L.geoJSON(geojson, {
+          style: () => getSurroundingBoundaryStyle(getActiveStylePath()),
+          interactive: false
+        }).addTo(map);
+        syncBoundaryLayers(getActiveStylePath());
+      })
+      .catch(() => {});
+
+    fetchJsonWithTimeout(DC_BOUNDARY_GEOJSON_URL)
+      .then(geojson => {
+        dcBoundaryLayer = L.geoJSON(geojson, {
+          style: () => getDcBoundaryStyle(getActiveStylePath()),
+          interactive: false
+        }).addTo(map);
+        syncBoundaryLayers(getActiveStylePath());
+      })
+      .catch(() => {});
+
+    document.querySelectorAll(".style-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        setMapStyle(btn.dataset.style);
+      });
+    });
+
+    const markers = [];
+
+    function renderDirectory(csvText) {
+      const parsed = Papa.parse(csvText, {
+        header: true,
+        skipEmptyLines: true
+      });
+
+      if (parsed.errors && parsed.errors.length > 0 && (!parsed.data || parsed.data.length === 0)) {
+        showListError("Could not parse CSV data: " + parsed.errors[0].message);
+        return;
+      }
+
+      const stores = (parsed.data || []).filter(r => r.name && r.name.trim());
+      if (stores.length === 0) {
+        showListError("Spreadsheet loaded, but no bookstore rows with a 'name' column were found.");
+        return;
+      }
+
+      listEl.innerHTML = "";
+      listEl.className = "";
+
+      const grouped = {};
+      HEADING_ORDER.forEach(h => {
+        grouped[h] = [];
+      });
+
+      stores.forEach(store => {
+        const heading = normalizeHeading(store.quadrant);
+        grouped[heading].push(store);
+
+        const lat = parseFloat(store.lat);
+        const lng = parseFloat(store.lng);
+        let marker = null;
+        if (!isNaN(lat) && !isNaN(lng)) {
+          marker = L.marker([lat, lng])
+            .addTo(map)
+            .bindPopup(`<strong>${store.name}</strong><br>${store.address || ""}`);
+          markers.push({ lat, lng, marker });
+        }
+        store._marker = marker;
+        store._lat = lat;
+        store._lng = lng;
+      });
+
+      if (markers.length > 0) {
+        const bounds = L.latLngBounds(markers.map(m => [m.lat, m.lng]));
+        map.fitBounds(bounds, { padding: [24, 24] });
+      }
+
+      const populatedHeadings = HEADING_ORDER.filter(heading => grouped[heading].length > 0);
+
+      if (populatedHeadings.length > 0) {
+        const jumpNav = document.createElement("nav");
+        jumpNav.className = "jump-bar";
+        jumpNav.setAttribute("aria-label", "Jump to region heading");
+
+        populatedHeadings.forEach(heading => {
+          const link = document.createElement("a");
+          link.className = "jump-link";
+          link.href = "#" + slugifyHeading(heading);
+          link.textContent = heading;
+          jumpNav.appendChild(link);
+        });
+
+        listEl.appendChild(jumpNav);
+      }
+
+      populatedHeadings.forEach(heading => {
+        const groupStores = grouped[heading].sort((a, b) =>
+          a.name.trim().localeCompare(b.name.trim(), undefined, { sensitivity: "base" })
+        );
+
+        const section = document.createElement("section");
+        section.className = "region-group";
+        section.id = slugifyHeading(heading);
+
+        const h2 = document.createElement("h2");
+        h2.className = "region-heading";
+        h2.textContent = heading;
+        section.appendChild(h2);
+
+        groupStores.forEach(store => {
+          const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((store.name || "") + " " + (store.address || ""))}`;
+          const item = document.createElement("article");
+          item.className = "store";
+
+          const titleHeading = document.createElement("h2");
+          const titleBtn = document.createElement("button");
+          titleBtn.type = "button";
+          titleBtn.className = "store-title-btn";
+          titleBtn.textContent = store.name;
+          if (store._marker && !isNaN(store._lat) && !isNaN(store._lng)) {
+            titleBtn.addEventListener("click", () => {
+              map.setView([store._lat, store._lng], 15);
+              store._marker.openPopup();
+              document.getElementById("map").scrollIntoView({ behavior: "smooth", block: "nearest" });
+            });
+          }
+          titleHeading.appendChild(titleBtn);
+          item.appendChild(titleHeading);
+
+          const metaDiv = document.createElement("div");
+          metaDiv.className = "meta";
+          metaDiv.textContent = [store.neighborhood, store.address].filter(Boolean).join(" · ");
+          item.appendChild(metaDiv);
+
+          if (store.description) {
+            const descP = document.createElement("p");
+            descP.textContent = store.description;
+            item.appendChild(descP);
+          }
+
+          const linksDiv = document.createElement("div");
+          linksDiv.className = "links";
+          linksDiv.innerHTML = `
+            <a href="${mapsUrl}" target="_blank" rel="noopener">Google Maps</a>
+            ${store.website ? `<a href="${store.website}" target="_blank" rel="noopener">Website</a>` : ""}
+          `;
+          item.appendChild(linksDiv);
+
+          section.appendChild(item);
+        });
+
+        listEl.appendChild(section);
+      });
+    }
+
+    fetch(SHEET_CSV_URL)
+      .then(res => {
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        return res.text();
+      })
+      .then(renderDirectory)
+      .catch(err => {
+        showListError("Unable to load spreadsheet data (" + err.message + ").");
+      });
+  </script>
+</body>
+</html>
