@@ -117,24 +117,46 @@
 
     .jump-bar {
       display: flex;
-      flex-wrap: wrap;
-      gap: 0.45rem;
-      padding: 0.75rem 0.85rem;
+      flex-direction: column;
+      gap: 0.65rem;
+      padding: 0.85rem 1rem;
       margin-bottom: 1.75rem;
       background: #fafafa;
       border: 1px solid #e4e4e7;
       border-radius: 6px;
     }
 
+    .jump-group {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+    }
+
+    .jump-group + .jump-group {
+      padding-top: 0.65rem;
+      border-top: 1px solid #ececef;
+    }
+
+    .jump-group-label {
+      min-width: 2.25rem;
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: #71717a;
+      margin-right: 0.25rem;
+    }
+
     .jump-link {
       display: inline-block;
-      padding: 0.28rem 0.6rem;
+      padding: 0.26rem 0.6rem;
       font-size: 0.82rem;
       font-weight: 500;
       color: #27272a;
       background: #ffffff;
       border: 1px solid #d4d4d8;
-      border-radius: 999px;
+      border-radius: 5px;
       text-decoration: none;
       transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
     }
@@ -285,6 +307,35 @@
       "MD - Prince Georges County",
       "VA - Alexandria",
       "VA - Arlington"
+    ];
+
+    const JURISDICTION_GROUPS = [
+      {
+        label: "D.C.",
+        headings: ["DC - NE", "DC - NW", "DC - SE", "DC - SW"],
+        shortLabels: {
+          "DC - NE": "NE",
+          "DC - NW": "NW",
+          "DC - SE": "SE",
+          "DC - SW": "SW"
+        }
+      },
+      {
+        label: "MD",
+        headings: ["MD - Montgomery County", "MD - Prince Georges County"],
+        shortLabels: {
+          "MD - Montgomery County": "Montgomery County",
+          "MD - Prince Georges County": "Prince Georges County"
+        }
+      },
+      {
+        label: "VA",
+        headings: ["VA - Alexandria", "VA - Arlington"],
+        shortLabels: {
+          "VA - Alexandria": "Alexandria",
+          "VA - Arlington": "Arlington"
+        }
+      }
     ];
 
     const PG_PLACES = [
@@ -726,12 +777,24 @@
       jumpNav.className = "jump-bar";
       jumpNav.setAttribute("aria-label", "Jump to region heading");
 
-      HEADING_ORDER.forEach(heading => {
-        const link = document.createElement("a");
-        link.className = "jump-link";
-        link.href = "#" + slugifyHeading(heading);
-        link.textContent = heading;
-        jumpNav.appendChild(link);
+      JURISDICTION_GROUPS.forEach(group => {
+        const row = document.createElement("div");
+        row.className = "jump-group";
+
+        const label = document.createElement("span");
+        label.className = "jump-group-label";
+        label.textContent = group.label;
+        row.appendChild(label);
+
+        group.headings.forEach(heading => {
+          const link = document.createElement("a");
+          link.className = "jump-link";
+          link.href = "#" + slugifyHeading(heading);
+          link.textContent = group.shortLabels[heading] || heading;
+          row.appendChild(link);
+        });
+
+        jumpNav.appendChild(row);
       });
 
       listEl.appendChild(jumpNav);
