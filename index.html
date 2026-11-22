@@ -444,9 +444,6 @@
     </div>
   </header>
 
-  <div class="map-toolbar">
-    <span class="map-toolbar-label">Esri World Topographic Map</span>
-  </div>
   <div id="map"></div>
   <button type="button" id="exitFullscreenBtn" class="exit-fullscreen-floating-btn">Exit full screen</button>
   <div id="mapNotice" class="map-notice"></div>
@@ -793,7 +790,7 @@
     activeTileLayer.on("tileerror", () => {
       tileErrors += 1;
       if (tileErrors >= 3) {
-        mapNoticeEl.textContent = "Some map tiles could not load from Esri World Topographic Map.";
+        mapNoticeEl.textContent = "Some map tiles could not load.";
       }
     });
     activeTileLayer.addTo(map);
