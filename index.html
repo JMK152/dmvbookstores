@@ -264,10 +264,17 @@
     const CARTO_API_KEY = "cb1_5e2t_1_7d78e49b01374bdc84b7b14c";
     const DC_BOUNDARY_GEOJSON_URL = "https://maps2.dcgis.dc.gov/dcgis/rest/services/DCGIS_DATA/Administrative_Other_Boundaries_WebMercator/MapServer/10/query?where=1%3D1&outFields=*&outSR=4326&f=geojson";
 
-    // US Census counties layer filtered to:
-    // 24031 = Montgomery County, MD | 24033 = Prince George's County, MD
-    // 51013 = Arlington County, VA | 51510 = Alexandria city, VA
-    const SURROUNDING_GEOJSON_URL = "https://services.arcgis.com/P3ePLMYs2RVChkJx/ArcGIS/rest/services/USA_Census_Counties/FeatureServer/0/query?where=GEOID%20IN%20(%2724031%27%2C%2724033%27%2C%2751013%27%2C%2751510%27)&outFields=GEOID,NAME,STATE_NAME&outSR=4326&f=geojson";
+    // Query DMV bounding box on USA_Census_Counties so field names or GEOID types don't cause empty results
+    const SURROUNDING_GEOJSON_URL = "https://services.arcgis.com/P3ePLMYs2RVChkJx/ArcGIS/rest/services/USA_Census_Counties/FeatureServer/0/query?where=1%3D1&geometry=-77.45%2C38.75%2C-76.65%2C39.35&geometryType=esriGeometryEnvelope&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=*&outSR=4326&f=geojson";
+
+    const TARGET_COUNTY_GEOIDS = new Set(["24031", "24033", "51013", "51510"]);
+    const TARGET_COUNTY_NAMES = new Set([
+      "MONTGOMERY",
+      "PRINCE GEORGE'S",
+      "PRINCE GEORGES",
+      "ARLINGTON",
+      "ALEXANDRIA"
+    ]);
 
     const HEADING_ORDER = [
       "DC - NE",
@@ -380,6 +387,8 @@
     function updateBoundaryNotice() {
       if (boundaryIssues.length > 0) {
         mapNoticeEl.textContent = "Boundary note: " + boundaryIssues.join(" · ");
+      } else {
+        mapNoticeEl.textContent = "";
       }
     }
 
@@ -533,9 +542,7 @@
 
     function createCartoLayer(stylePath) {
       tileErrors = 0;
-      if (boundaryIssues.length === 0) {
-        mapNoticeEl.textContent = "";
-      }
+      updateBoundaryNotice();
       const layer = L.tileLayer(`https://{s}.basemaps.cartocdn.com/${stylePath}/{z}/{x}/{y}{r}.png?key=${CARTO_API_KEY}`, {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a> | Boundaries: Open Data DC &amp; U.S. Census',
         subdomains: "abcd",
@@ -592,12 +599,32 @@
         .finally(() => clearTimeout(timer));
     }
 
+    function isTargetSurroundingFeature(feature) {
+      const props = (feature && feature.properties) || {};
+      const geoid = String(getField(props, "GEOID", "FIPS", "STATE_COUNTY_FIPS") || "").trim();
+      if (TARGET_COUNTY_GEOIDS.has(geoid)) return true;
+
+      const name = String(getField(props, "NAME", "COUNTY_NAME", "NAMELSAD") || "")
+        .trim()
+        .toUpperCase()
+        .replace(/’/g, "'")
+        .replace(/\s+(COUNTY|CITY)$/i, "");
+      const state = String(getField(props, "STATE_NAME", "STATE", "STUSPS") || "")
+        .trim()
+        .toUpperCase();
+
+      const isMdOrVa = state === "MD" || state === "MARYLAND" || state === "VA" || state === "VIRGINIA";
+      return isMdOrVa && TARGET_COUNTY_NAMES.has(name);
+    }
+
     fetchJsonWithTimeout(SURROUNDING_GEOJSON_URL)
       .then(geojson => {
         if (!geojson || !Array.isArray(geojson.features) || geojson.features.length === 0) {
           throw new Error("Empty features");
         }
-        surroundingBoundaryLayer = L.geoJSON(geojson, {
+        const filteredFeatures = geojson.features.filter(isTargetSurroundingFeature);
+        const featuresToDraw = filteredFeatures.length > 0 ? filteredFeatures : geojson.features;
+        surroundingBoundaryLayer = L.geoJSON({ type: "FeatureCollection", features: featuresToDraw }, {
           style: () => getSurroundingBoundaryStyle(getActiveStylePath()),
           interactive: false
         }).addTo(map);
