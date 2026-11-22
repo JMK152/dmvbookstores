@@ -814,7 +814,14 @@
 
         let marker = null;
         if (!isNaN(lat) && !isNaN(lng)) {
-          marker = L.marker([lat, lng])
+          marker = L.circleMarker([lat, lng], {
+            radius: 6.5,
+            color: "#ffffff",
+            weight: 1.75,
+            opacity: 0.95,
+            fillColor: "#1d4ed8",
+            fillOpacity: 0.9
+          })
             .addTo(map)
             .bindPopup(popupParts.join("<br>"));
           markers.push({ lat, lng, marker });
