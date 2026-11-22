@@ -359,6 +359,20 @@
       "FAIR LINGTON"
     ];
 
+    function getField(row, ...candidates) {
+      if (!row || typeof row !== "object") return "";
+      const keys = Object.keys(row);
+      for (const candidate of candidates) {
+        const target = candidate.trim().toLowerCase();
+        const match = keys.find(k => k.trim().toLowerCase() === target);
+        if (match !== undefined && row[match] !== undefined && row[match] !== null) {
+          const val = String(row[match]).trim();
+          if (val !== "") return val;
+        }
+      }
+      return "";
+    }
+
     const listEl = document.getElementById("list");
     const mapNoticeEl = document.getElementById("mapNotice");
     const boundaryIssues = [];
@@ -388,19 +402,23 @@
     }
 
     function normalizeHeading(store) {
-      const rawQuadrant = typeof store === "string" ? store : (store.quadrant || "");
+      const rawQuadrant = getField(store, "quadrant", "region", "area", "jurisdiction", "county");
       const q = rawQuadrant
         .trim()
         .toUpperCase()
         .replace(/’/g, "'")
         .replace(/\s+/g, " ");
 
-      const locationText = typeof store === "string"
-        ? ""
-        : [store.neighborhood || "", store.address || ""]
-            .join(" ")
-            .toUpperCase()
-            .replace(/’/g, "'");
+      const neighborhood = getField(store, "neighborhood", "hood", "city", "town");
+      const address = getField(store, "address", "street_address", "street address", "location");
+      const locationText = [neighborhood, address]
+        .join(" ")
+        .toUpperCase()
+        .replace(/’/g, "'");
+
+      const lat = parseFloat(getField(store, "lat", "latitude"));
+      const lng = parseFloat(getField(store, "lng", "lon", "long", "longitude"));
+      const hasCoords = !isNaN(lat) && !isNaN(lng);
 
       if (q === "NE" || q === "NE DC" || q === "DC - NE" || q === "DC-NE") return "DC - NE";
       if (q === "NW" || q === "NW DC" || q === "DC - NW" || q === "DC-NW") return "DC - NW";
@@ -443,6 +461,9 @@
         if (locationText.includes("MONTGOMERY") || MOCO_PLACES.some(place => locationText.includes(place))) {
           return "MD - Montgomery County";
         }
+        if (hasCoords) {
+          return lng > -77.01 ? "MD - Prince Georges County" : "MD - Montgomery County";
+        }
         return "MD - Prince Georges County";
       }
 
@@ -452,6 +473,9 @@
         }
         if (ARLINGTON_PLACES.some(place => locationText.includes(place))) {
           return "VA - Arlington";
+        }
+        if (hasCoords) {
+          return lat < 38.835 ? "VA - Alexandria" : "VA - Arlington";
         }
         return "VA - Arlington";
       }
@@ -619,9 +643,9 @@
         return;
       }
 
-      const stores = (parsed.data || []).filter(r => r.name && r.name.trim());
+      const stores = (parsed.data || []).filter(r => getField(r, "name", "store", "bookstore", "title"));
       if (stores.length === 0) {
-        showListError("Spreadsheet loaded, but no bookstore rows with a 'name' column were found.");
+        showListError("Spreadsheet loaded, but no bookstore rows with a name column were found.");
         return;
       }
 
@@ -634,21 +658,36 @@
       });
 
       stores.forEach(store => {
-        const heading = normalizeHeading(store);
-        grouped[heading].push(store);
+        const name = getField(store, "name", "store", "bookstore", "title");
+        const address = getField(store, "address", "street_address", "street address", "location");
+        const neighborhood = getField(store, "neighborhood", "hood", "city", "town");
+        const description = getField(store, "description", "notes", "about");
+        const website = getField(store, "website", "url", "link");
+        const lat = parseFloat(getField(store, "lat", "latitude"));
+        const lng = parseFloat(getField(store, "lng", "lon", "long", "longitude"));
 
-        const lat = parseFloat(store.lat);
-        const lng = parseFloat(store.lng);
+        const heading = normalizeHeading(store);
+        grouped[heading].push({
+          ...store,
+          _name: name,
+          _address: address,
+          _neighborhood: neighborhood,
+          _description: description,
+          _website: website
+        });
+
         let marker = null;
         if (!isNaN(lat) && !isNaN(lng)) {
           marker = L.marker([lat, lng])
             .addTo(map)
-            .bindPopup(`<strong>${store.name}</strong><br>${store.address || ""}`);
+            .bindPopup(`<strong>${name}</strong><br>${address}`);
           markers.push({ lat, lng, marker });
         }
-        store._marker = marker;
-        store._lat = lat;
-        store._lng = lng;
+
+        const entry = grouped[heading][grouped[heading].length - 1];
+        entry._marker = marker;
+        entry._lat = lat;
+        entry._lng = lng;
       });
 
       if (markers.length > 0) {
@@ -672,7 +711,7 @@
 
       HEADING_ORDER.forEach(heading => {
         const groupStores = grouped[heading].sort((a, b) =>
-          a.name.trim().localeCompare(b.name.trim(), undefined, { sensitivity: "base" })
+          a._name.localeCompare(b._name, undefined, { sensitivity: "base" })
         );
 
         const section = document.createElement("section");
@@ -694,7 +733,7 @@
         }
 
         groupStores.forEach(store => {
-          const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((store.name || "") + " " + (store.address || ""))}`;
+          const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((store._name || "") + " " + (store._address || ""))}`;
           const item = document.createElement("article");
           item.className = "store";
 
@@ -702,7 +741,7 @@
           const titleBtn = document.createElement("button");
           titleBtn.type = "button";
           titleBtn.className = "store-title-btn";
-          titleBtn.textContent = store.name;
+          titleBtn.textContent = store._name;
           if (store._marker && !isNaN(store._lat) && !isNaN(store._lng)) {
             titleBtn.addEventListener("click", () => {
               map.setView([store._lat, store._lng], 15);
@@ -715,12 +754,12 @@
 
           const metaDiv = document.createElement("div");
           metaDiv.className = "meta";
-          metaDiv.textContent = [store.neighborhood, store.address].filter(Boolean).join(" · ");
+          metaDiv.textContent = [store._neighborhood, store._address].filter(Boolean).join(" · ");
           item.appendChild(metaDiv);
 
-          if (store.description) {
+          if (store._description) {
             const descP = document.createElement("p");
-            descP.textContent = store.description;
+            descP.textContent = store._description;
             item.appendChild(descP);
           }
 
@@ -728,7 +767,7 @@
           linksDiv.className = "links";
           linksDiv.innerHTML = `
             <a href="${mapsUrl}" target="_blank" rel="noopener">Google Maps</a>
-            ${store.website ? `<a href="${store.website}" target="_blank" rel="noopener">Website</a>` : ""}
+            ${store._website ? `<a href="${store._website}" target="_blank" rel="noopener">Website</a>` : ""}
           `;
           item.appendChild(linksDiv);
 
@@ -739,7 +778,7 @@
       });
     }
 
-    fetch(SHEET_CSV_URL)
+    fetch(SHEET_CSV_URL, { cache: "no-store" })
       .then(res => {
         if (!res.ok) throw new Error("HTTP " + res.status);
         return res.text();
