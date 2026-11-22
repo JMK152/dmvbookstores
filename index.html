@@ -40,10 +40,31 @@
       color: #111827;
     }
 
+    .subtitle-row {
+      display: flex;
+      align-items: baseline;
+      flex-wrap: wrap;
+      gap: 0.35rem 0.6rem;
+    }
+
     .subtitle {
       color: #52525b;
       margin: 0;
       font-size: 1rem;
+    }
+
+    .header-feedback-link {
+      color: #52525b;
+      font-size: 0.9rem;
+      font-weight: 500;
+      text-decoration: none;
+      border-bottom: 1px solid #d4d4d8;
+      transition: color 0.15s ease, border-color 0.15s ease;
+    }
+
+    .header-feedback-link:hover {
+      color: #18181b;
+      border-bottom-color: #18181b;
     }
 
     .map-toolbar {
@@ -416,7 +437,11 @@
 <body>
   <header>
     <h1>DMV Bookstores</h1>
-    <p class="subtitle">Independent bookstores across Washington, D.C., Maryland, and Northern Virginia.</p>
+    <div class="subtitle-row">
+      <p class="subtitle">Independent bookstores across Washington, D.C., Maryland, and Northern Virginia.</p>
+      <span aria-hidden="true" style="color: #a1a1aa;">·</span>
+      <a class="header-feedback-link" href="https://docs.google.com/forms/d/e/1FAIpQLSf70Xf7d3rxLu5xyy4gJJNmq_KHry3uTAEsUunC10s0GhSHsg/viewform?usp=publish-editor" target="_blank" rel="noopener">Suggest a shop or update</a>
+    </div>
   </header>
 
   <div class="map-toolbar">
