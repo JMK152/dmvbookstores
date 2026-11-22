@@ -325,6 +325,40 @@
       "GLEN ECHO"
     ];
 
+    const ALEXANDRIA_PLACES = [
+      "ALEXANDRIA",
+      "OLD TOWN",
+      "DEL RAY",
+      "CARLYLE",
+      "EISENHOWER",
+      "POTOMAC YARD",
+      "BRADDOCK",
+      "PARKFAIRFAX",
+      "ROSEMOUNT",
+      "BEVERLY HILLS",
+      "SEMINARY",
+      "WEST END"
+    ];
+
+    const ARLINGTON_PLACES = [
+      "ARLINGTON",
+      "ROSSLYN",
+      "BALLSTON",
+      "CLARENDON",
+      "VIRGINIA SQUARE",
+      "COURT HOUSE",
+      "PENTAGON CITY",
+      "CRYSTAL CITY",
+      "SHIRLINGTON",
+      "COLUMBIA PIKE",
+      "LYON VILLAGE",
+      "ASHTON HEIGHTS",
+      "CHERRYDALE",
+      "BARCROFT",
+      "FAIRLINGON",
+      "FAIR LINGTON"
+    ];
+
     const listEl = document.getElementById("list");
     const mapNoticeEl = document.getElementById("mapNotice");
     const boundaryIssues = [];
@@ -413,10 +447,10 @@
       }
 
       if (q === "VA" || q === "VIRGINIA") {
-        if (locationText.includes("ALEXANDRIA")) {
+        if (ALEXANDRIA_PLACES.some(place => locationText.includes(place))) {
           return "VA - Alexandria";
         }
-        if (locationText.includes("ARLINGTON")) {
+        if (ARLINGTON_PLACES.some(place => locationText.includes(place))) {
           return "VA - Arlington";
         }
         return "VA - Arlington";
