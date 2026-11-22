@@ -191,8 +191,8 @@
   <div class="map-toolbar">
     <span class="map-toolbar-label">Map style</span>
     <div class="style-buttons" role="group" aria-label="Map style switcher">
-      <button type="button" class="style-btn" data-style="light_all" aria-pressed="true">Positron</button>
-      <button type="button" class="style-btn" data-style="rastertiles/voyager" aria-pressed="false">Voyager</button>
+      <button type="button" class="style-btn" data-style="rastertiles/voyager" aria-pressed="true">Voyager</button>
+      <button type="button" class="style-btn" data-style="light_all" aria-pressed="false">Positron</button>
       <button type="button" class="style-btn" data-style="dark_all" aria-pressed="false">Dark Matter</button>
     </div>
   </div>
@@ -204,6 +204,7 @@
   <script>
     const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRJNe2Q3nsS690lAyyXttzpF0sOUs6w3MH6yqsrzM2OB0v9nE-V8HDHg2qiLHLt0PPWwUOU0f-JZzgr/pub?output=csv";
     const CARTO_API_KEY = "cb1_5e2t_1_7d78e49b01374bdc84b7b14c";
+    const DC_BOUNDARY_GEOJSON_URL = "https://maps2.dcgis.dc.gov/dcgis/rest/services/DCGIS_DATA/Administrative_Other_Boundaries_WebMercator/MapServer/10/query?where=1%3D1&outFields=*&outSR=4326&f=geojson";
 
     const HEADING_ORDER = [
       "NE DC",
@@ -231,10 +232,30 @@
     }).setView([38.9072, -77.0369], 12);
 
     let activeTileLayer = null;
+    let dcBoundaryLayer = null;
+
+    function getBoundaryStyle(stylePath) {
+      if (stylePath === "dark_all") {
+        return {
+          color: "#f8fafc",
+          weight: 2.5,
+          opacity: 0.9,
+          fill: false,
+          interactive: false
+        };
+      }
+      return {
+        color: "#312e81",
+        weight: 2.5,
+        opacity: 0.85,
+        fill: false,
+        interactive: false
+      };
+    }
 
     function createCartoLayer(stylePath) {
       return L.tileLayer(`https://{s}.basemaps.cartocdn.com/${stylePath}/{z}/{x}/{y}{r}.png?key=${CARTO_API_KEY}`, {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a> | Boundary: <a href="https://opendata.dc.gov/">Open Data DC</a>',
         subdomains: "abcd",
         maxZoom: 20
       });
@@ -247,12 +268,35 @@
       activeTileLayer = createCartoLayer(stylePath);
       activeTileLayer.addTo(map);
 
+      if (dcBoundaryLayer) {
+        dcBoundaryLayer.setStyle(getBoundaryStyle(stylePath));
+        dcBoundaryLayer.bringToBack();
+      }
+
       document.querySelectorAll(".style-btn").forEach(btn => {
         btn.setAttribute("aria-pressed", btn.dataset.style === stylePath ? "true" : "false");
       });
     }
 
-    setMapStyle("light_all");
+    setMapStyle("rastertiles/voyager");
+
+    fetch(DC_BOUNDARY_GEOJSON_URL)
+      .then(response => {
+        if (!response.ok) throw new Error("Boundary fetch failed");
+        return response.json();
+      })
+      .then(geojson => {
+        const currentBtn = document.querySelector('.style-btn[aria-pressed="true"]');
+        const currentStyle = currentBtn ? currentBtn.dataset.style : "rastertiles/voyager";
+        dcBoundaryLayer = L.geoJSON(geojson, {
+          style: () => getBoundaryStyle(currentStyle),
+          interactive: false
+        }).addTo(map);
+        dcBoundaryLayer.bringToBack();
+      })
+      .catch(() => {
+        // Leave map working cleanly if the boundary service cannot be reached
+      });
 
     document.querySelectorAll(".style-btn").forEach(btn => {
       btn.addEventListener("click", () => {
