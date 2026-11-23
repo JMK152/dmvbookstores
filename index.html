@@ -475,7 +475,7 @@
       "DC - SE",
       "DC - SW",
       "MD - Montgomery",
-      "MD - Prince Georges",
+      "MD - Prince George's",
       "VA - Alexandria",
       "VA - Arlington",
       "VA - Fairfax"
@@ -494,10 +494,10 @@
       },
       {
         label: "MD",
-        headings: ["MD - Montgomery", "MD - Prince Georges"],
+        headings: ["MD - Montgomery", "MD - Prince George's"],
         shortLabels: {
           "MD - Montgomery": "Montgomery",
-          "MD - Prince Georges": "Prince Georges"
+          "MD - Prince George's": "Prince George's"
         }
       },
       {
@@ -696,7 +696,7 @@
         q === "MD - PRINCE GEORGES COUNTY" ||
         q === "MD - PRINCE GEORGE'S COUNTY"
       ) {
-        return "MD - Prince Georges";
+        return "MD - Prince George's";
       }
 
       if (q.includes("FAIRFAX") || q === "VA - FAIRFAX COUNTY" || q === "VA - FAIRFAX") {
@@ -713,15 +713,15 @@
 
       if (q === "MD" || q === "MARYLAND") {
         if (locationText.includes("PRINCE GEORGE") || PG_PLACES.some(place => locationText.includes(place))) {
-          return "MD - Prince Georges";
+          return "MD - Prince George's";
         }
         if (locationText.includes("MONTGOMERY") || MOCO_PLACES.some(place => locationText.includes(place))) {
           return "MD - Montgomery";
         }
         if (hasCoords) {
-          return lng > -77.01 ? "MD - Prince Georges" : "MD - Montgomery";
+          return lng > -77.01 ? "MD - Prince George's" : "MD - Montgomery";
         }
-        return "MD - Prince Georges";
+        return "MD - Prince George's";
       }
 
       if (q === "VA" || q === "VIRGINIA") {
