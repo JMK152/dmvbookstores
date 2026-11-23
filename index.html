@@ -432,6 +432,37 @@
       border-radius: 6px;
       font-size: 0.9rem;
     }
+
+    .info-section {
+      margin-top: 3rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid #e4e4e7;
+      scroll-margin-top: 1.5rem;
+    }
+
+    .info-section h2 {
+      margin: 0 0 0.5rem;
+      font-size: 1.15rem;
+      font-weight: 700;
+      letter-spacing: -0.015em;
+      color: #111827;
+    }
+
+    .info-section p {
+      margin: 0;
+      font-size: 0.92rem;
+      color: #52525b;
+    }
+
+    .info-section a {
+      color: #1d4ed8;
+      text-decoration: none;
+      font-weight: 500;
+    }
+
+    .info-section a:hover {
+      text-decoration: underline;
+    }
   </style>
 </head>
 <body>
@@ -440,7 +471,11 @@
     <div class="subtitle-row">
       <p class="subtitle">Independent bookstores across Washington, D.C., Maryland, and Northern Virginia.</p>
       <span aria-hidden="true" style="color: #a1a1aa;">·</span>
-      <a class="header-feedback-link" href="https://docs.google.com/forms/d/e/1FAIpQLSf70Xf7d3rxLu5xyy4gJJNmq_KHry3uTAEsUunC10s0GhSHsg/viewform?usp=publish-editor" target="_blank" rel="noopener">Suggest a store or update</a>
+      <span class="header-feedback-link-group">
+        <a class="header-feedback-link" href="https://docs.google.com/forms/d/e/1FAIpQLSf70Xf7d3rxLu5xyy4gJJNmq_KHry3uTAEsUunC10s0GhSHsg/viewform?usp=publish-editor" target="_blank" rel="noopener">Suggest a store or update</a>
+        <span aria-hidden="true" style="color: #a1a1aa; margin: 0 0.35rem;">|</span>
+        <a class="header-feedback-link" href="#info">Info</a>
+      </span>
     </div>
   </header>
 
@@ -448,6 +483,14 @@
   <button type="button" id="exitFullscreenBtn" class="exit-fullscreen-floating-btn">Exit full screen</button>
   <div id="mapNotice" class="map-notice"></div>
   <div id="list" class="status">Loading bookstores...</div>
+
+  <section id="info" class="info-section" aria-labelledby="info-heading">
+    <h2 id="info-heading">Info</h2>
+    <p>
+      A directory of independent bookstores across the DMV inspired by
+      <a href="https://nycbookstores.org/" target="_blank" rel="noopener">nycbookstores.org</a>. I am not a web developer, just someone that likes books, so please don't look at this site too hard or else it might explode.
+    </p>
+  </section>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
