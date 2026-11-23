@@ -463,6 +463,33 @@
     .info-section a:hover {
       text-decoration: underline;
     }
+
+    .updates-subsection {
+      margin-top: 1.25rem;
+    }
+
+    .updates-subsection h3 {
+      margin: 0 0 0.45rem;
+      font-size: 0.98rem;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      color: #111827;
+    }
+
+    .updates-list {
+      margin: 0;
+      padding-left: 1.2rem;
+      font-size: 0.92rem;
+      color: #52525b;
+    }
+
+    .updates-list li {
+      margin-bottom: 0.3rem;
+    }
+
+    .updates-list li:last-child {
+      margin-bottom: 0;
+    }
   </style>
 </head>
 <body>
@@ -490,12 +517,17 @@
       A directory of independent bookstores across the DMV inspired by
       <a href="https://nycbookstores.org/" target="_blank" rel="noopener">nycbookstores.org</a>. I am not a web developer, just someone that likes books, so please don't look at this site too hard or else it might explode.
     </p>
+    <div id="updatesSection" class="updates-subsection" hidden>
+      <h3>Updates</h3>
+      <ul id="updatesList" class="updates-list"></ul>
+    </div>
   </section>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
   <script>
     const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRJNe2Q3nsS690lAyyXttzpF0sOUs6w3MH6yqsrzM2OB0v9nE-V8HDHg2qiLHLt0PPWwUOU0f-JZzgr/pub?output=csv";
+    const UPDATES_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRJNe2Q3nsS690lAyyXttzpF0sOUs6w3MH6yqsrzM2OB0v9nE-V8HDHg2qiLHLt0PPWwUOU0f-JZzgr/pub?gid=1007147372&single=true&output=csv";
     const ESRI_TOPO_TILE_URL = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}";
     const DC_BOUNDARY_GEOJSON_URL = "https://maps2.dcgis.dc.gov/dcgis/rest/services/DCGIS_DATA/Administrative_Other_Boundaries_WebMercator/MapServer/10/query?where=1%3D1&outFields=*&outSR=4326&f=geojson";
 
@@ -1197,6 +1229,66 @@
       });
     }
 
+    function formatUpdateDate(rawDate) {
+      const str = String(rawDate || "").trim();
+      if (!str) return "";
+
+      // Already formatted like MM.DD.YY
+      if (/^\d{2}\.\d{2}\.\d{2}$/.test(str)) return str;
+
+      // Match M/D/YYYY or M-D-YYYY or M.D.YYYY (with 2- or 4-digit year)
+      const slashMatch = str.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})$/);
+      if (slashMatch) {
+        const mm = slashMatch[1].padStart(2, "0");
+        const dd = slashMatch[2].padStart(2, "0");
+        const yy = slashMatch[3].slice(-2);
+        return `${mm}.${dd}.${yy}`;
+      }
+
+      // Match ISO YYYY-MM-DD
+      const isoMatch = str.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+      if (isoMatch) {
+        const yy = isoMatch[1].slice(-2);
+        const mm = isoMatch[2].padStart(2, "0");
+        const dd = isoMatch[3].padStart(2, "0");
+        return `${mm}.${dd}.${yy}`;
+      }
+
+      return str;
+    }
+
+    function renderUpdates(csvText) {
+      const parsed = Papa.parse(csvText, {
+        header: true,
+        skipEmptyLines: true
+      });
+
+      const rows = (parsed.data || []).map(row => {
+        const values = Object.values(row).map(v => String(v || "").trim());
+        const date = getField(row, "date", "day", "when", "timestamp") || values[0] || "";
+        const text = getField(row, "update", "updates", "text", "note", "notes", "description", "entry") || values[1] || "";
+        return {
+          date: formatUpdateDate(date),
+          text: text.trim()
+        };
+      }).filter(item => item.date || item.text);
+
+      if (rows.length === 0) return;
+
+      const recentFive = rows.slice(-5).reverse();
+      const updatesSection = document.getElementById("updatesSection");
+      const updatesList = document.getElementById("updatesList");
+
+      updatesList.innerHTML = "";
+      recentFive.forEach(item => {
+        const li = document.createElement("li");
+        li.textContent = [item.date, item.text].filter(Boolean).join(" - ");
+        updatesList.appendChild(li);
+      });
+
+      updatesSection.hidden = false;
+    }
+
     fetch(SHEET_CSV_URL, { cache: "no-store" })
       .then(res => {
         if (!res.ok) throw new Error("HTTP " + res.status);
@@ -1205,6 +1297,16 @@
       .then(renderDirectory)
       .catch(err => {
         showListError("Unable to load spreadsheet data (" + err.message + ").");
+      });
+
+    fetch(UPDATES_CSV_URL, { cache: "no-store" })
+      .then(res => {
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        return res.text();
+      })
+      .then(renderUpdates)
+      .catch(() => {
+        // Keep Updates section hidden if unavailable
       });
   </script>
 <script data-goatcounter="https://jmk152.goatcounter.com/count"
